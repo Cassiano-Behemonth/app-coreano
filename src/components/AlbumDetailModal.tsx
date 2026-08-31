@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Share2, Edit3, Trash2, Tag, FileText, Camera, Plus, CheckCircle2 } from 'lucide-react';
+import { X, Share2, Edit3, Trash2, Tag, FileText, Camera, Plus, CheckCircle2, Download } from 'lucide-react';
 import type { NFAlbum, PhotoAttachment } from '../types';
-import { shareAlbumPDF } from '../services/pdf';
+import { shareOrDownloadPDF } from '../services/pdf';
 import confetti from 'canvas-confetti';
 
 interface AlbumDetailModalProps {
@@ -23,6 +23,7 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
 }) => {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,15 +31,21 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
 
   const handleShare = async () => {
     setIsSharing(true);
-    confetti({
-      particleCount: 40,
-      spread: 50,
-      origin: { y: 0.6 }
-    });
+    setShareFeedback(null);
     try {
-      await shareAlbumPDF(album);
+      const result = await shareOrDownloadPDF(album);
+      if (result.success) {
+        confetti({
+          particleCount: 40,
+          spread: 50,
+          origin: { y: 0.6 }
+        });
+        setShareFeedback(result.message);
+        setTimeout(() => setShareFeedback(null), 4000);
+      }
     } catch (err) {
       console.error(err);
+      setShareFeedback('Erro ao processar PDF');
     } finally {
       setIsSharing(false);
     }
@@ -149,6 +156,25 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
               {album.attachments?.length || 0} fotos salvas • Criado em {new Date(album.createdAt).toLocaleDateString('pt-BR')}
             </p>
           </div>
+
+          {/* Feedback de Compartilhamento/Download */}
+          {shareFeedback && (
+            <div style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '10px 14px',
+              color: '#34D399',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <Download size={16} />
+              {shareFeedback}
+            </div>
+          )}
 
           {/* Galeria de Fotos e Comprovantes */}
           <div>

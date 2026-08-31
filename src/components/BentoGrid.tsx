@@ -1,23 +1,26 @@
 import React from 'react';
-import { Camera, ArrowUpRight, FolderOpen, Layers } from 'lucide-react';
+import { Camera, ArrowUpRight, FolderOpen, Layers, Plus } from 'lucide-react';
 import type { NFAlbum } from '../types';
 
 interface BentoGridProps {
   albums: NFAlbum[];
+  categories: string[];
   onSelectCategory: (category: string | null) => void;
   selectedCategory: string | null;
   onAlbumClick: (album: NFAlbum) => void;
+  onAddNewFolder: () => void;
 }
 
 export const BentoGrid: React.FC<BentoGridProps> = ({
   albums,
+  categories,
   onSelectCategory,
   selectedCategory,
-  onAlbumClick
+  onAlbumClick,
+  onAddNewFolder
 }) => {
   const totalPhotos = albums.reduce((acc, a) => acc + (a.attachments?.length || 0), 0);
   const latestAlbum = albums.length > 0 ? albums[0] : null;
-  const categories = Array.from(new Set(albums.map(a => a.category || 'Geral')));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px' }}>
@@ -50,10 +53,9 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
         </div>
       </div>
 
-      {/* 2. Grid de 2 Colunas: Organizações vs Pastas */}
+      {/* 2. Grid de 2 Colunas: Organizações vs Fotos */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         
-        {/* Card Esquerdo: Organizações */}
         <div className="bento-card" style={{ height: '130px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Layers size={20} color="#60A5FA" />
@@ -66,7 +68,6 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
           </div>
         </div>
 
-        {/* Card Direito: Fotos */}
         <div className="bento-card" style={{ height: '130px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Camera size={20} color="#34D399" />
@@ -81,8 +82,8 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
 
       </div>
 
-      {/* 3. Filtros Rápidos por Categorias / Pastas */}
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+      {/* 3. Filtros Rápidos por Categorias / Pastas Dinâmicas */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', alignItems: 'center' }}>
         <button
           onClick={() => onSelectCategory(null)}
           className="badge-pill"
@@ -98,8 +99,8 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
           Todas ({albums.length})
         </button>
 
-        {categories.map(cat => {
-          const count = albums.filter(a => (a.category || 'Geral') === cat).length;
+        {categories.map((cat) => {
+          const count = albums.filter((a) => (a.category || 'Geral') === cat).length;
           const isSelected = selectedCategory === cat;
           return (
             <button
@@ -119,6 +120,22 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
             </button>
           );
         })}
+
+        <button
+          onClick={onAddNewFolder}
+          className="badge-pill"
+          style={{
+            padding: '8px 14px',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            color: '#60A5FA',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            border: '1px dashed rgba(59, 130, 246, 0.4)'
+          }}
+        >
+          <Plus size={13} />
+          Nova Pasta
+        </button>
       </div>
 
     </div>

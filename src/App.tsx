@@ -2,66 +2,75 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { BentoGrid } from './components/BentoGrid';
 import { AlbumCard } from './components/AlbumCard';
-import { ScanModal } from './components/ScanModal';
+import { AddPhotosModal } from './components/AddPhotosModal';
 import { EditAlbumModal } from './components/EditAlbumModal';
 import { AlbumDetailModal } from './components/AlbumDetailModal';
 import { BottomNav } from './components/BottomNav';
-import type { NFAlbum, PhotoAttachment, OCRQuickResult } from './types';
-import { getAllAlbums, saveAlbum, deleteAlbum, seedInitialDataIfEmpty } from './services/db';
-import { Plus, Camera, Folder, ArrowRight } from 'lucide-react';
+import type { NFAlbum, PhotoAttachment } from './types';
+import { 
+  getAllAlbums, 
+  saveAlbum, 
+  deleteAlbum, 
+  seedInitialDataIfEmpty,
+  getAllFolders,
+  createCustomFolder
+} from './services/db';
+import { Plus, Camera, Folder, ArrowRight, FolderPlus } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [albums, setAlbums] = useState<NFAlbum[]>([]);
+  const [folders, setFolders] = useState<string[]>(['Geral']);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'folders'>('grid');
 
   // Modais
-  const [isScanOpen, setIsScanOpen] = useState(false);
+  const [isAddPhotosOpen, setIsAddPhotosOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
+  const [newFolderNameInput, setNewFolderNameInput] = useState('');
 
   // Estados dos modais
   const [editingAlbum, setEditingAlbum] = useState<Partial<NFAlbum> | undefined>(undefined);
-  const [ocrData, setOcrData] = useState<OCRQuickResult | null>(null);
-  const [scannedInitialPhoto, setScannedInitialPhoto] = useState<string | undefined>(undefined);
+  const [initialPhotos, setInitialPhotos] = useState<string[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<NFAlbum | null>(null);
 
   useEffect(() => {
     async function loadData() {
       await seedInitialDataIfEmpty();
-      const list = await getAllAlbums();
-      setAlbums(list);
+      await refreshAll();
     }
     loadData();
   }, []);
 
-  const refreshAlbums = async () => {
+  const refreshAll = async () => {
     const list = await getAllAlbums();
+    const folderList = await getAllFolders();
     setAlbums(list);
+    setFolders(folderList);
   };
 
-  const handleScanComplete = (data: OCRQuickResult, photoDataUrl: string) => {
-    setIsScanOpen(false);
-    setOcrData(data);
-    setScannedInitialPhoto(photoDataUrl);
+  // Captura instantânea de fotos (sem OCR e sem delay)
+  const handlePhotosSelected = (photoDataUrls: string[]) => {
+    setIsAddPhotosOpen(false);
+    setInitialPhotos(photoDataUrls);
     setEditingAlbum(undefined);
     setIsEditOpen(true);
   };
 
   const handleCreateManual = () => {
-    setOcrData(null);
-    setScannedInitialPhoto(undefined);
+    setInitialPhotos([]);
     setEditingAlbum(undefined);
     setIsEditOpen(true);
   };
 
   const handleSaveAlbum = async (album: NFAlbum) => {
     await saveAlbum(album);
-    await refreshAlbums();
+    await refreshAll();
     setIsEditOpen(false);
-    setOcrData(null);
+    setInitialPhotos([]);
     setEditingAlbum(undefined);
     setSelectedAlbum(album);
     setIsDetailOpen(true);
@@ -70,7 +79,7 @@ export const App: React.FC = () => {
   const handleDeleteAlbum = async (id: string) => {
     if (window.confirm('Excluir esta organização e todas as suas fotos?')) {
       await deleteAlbum(id);
-      await refreshAlbums();
+      await refreshAll();
       setIsDetailOpen(false);
       setSelectedAlbum(null);
     }
@@ -87,8 +96,16 @@ export const App: React.FC = () => {
     };
 
     await saveAlbum(updated);
-    await refreshAlbums();
+    await refreshAll();
     setSelectedAlbum(updated);
+  };
+
+  const handleCreateNewFolder = async () => {
+    if (!newFolderNameInput.trim()) return;
+    await createCustomFolder(newFolderNameInput.trim());
+    setNewFolderNameInput('');
+    setIsNewFolderModalOpen(false);
+    await refreshAll();
   };
 
   const handleCardClick = (album: NFAlbum) => {
@@ -107,14 +124,12 @@ export const App: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const categoriesList = Array.from(new Set(albums.map(a => a.category || 'Geral')));
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
       {/* Cabeçalho */}
       <Header
-        onScanClick={() => setIsScanOpen(true)}
+        onScanClick={() => setIsAddPhotosOpen(true)}
         onSearchClick={() => setSearchOpen(!searchOpen)}
         searchOpen={searchOpen}
         searchQuery={searchQuery}
@@ -127,8 +142,18 @@ export const App: React.FC = () => {
         {/* Visualização de Pastas */}
         {activeTab === 'folders' ? (
           <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>Pastas de Fotos</h2>
-            {categoriesList.map(cat => {
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>Pastas de Fotos</h2>
+              <button
+                onClick={() => setIsNewFolderModalOpen(true)}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                <FolderPlus size={14} /> + Nova Pasta
+              </button>
+            </div>
+
+            {folders.map(cat => {
               const catAlbums = albums.filter(a => (a.category || 'Geral') === cat);
               const catPhotos = catAlbums.reduce((acc, a) => acc + (a.attachments?.length || 0), 0);
 
@@ -165,9 +190,11 @@ export const App: React.FC = () => {
           <>
             <BentoGrid
               albums={albums}
+              categories={folders}
               onSelectCategory={setSelectedCategory}
               selectedCategory={selectedCategory}
               onAlbumClick={handleCardClick}
+              onAddNewFolder={() => setIsNewFolderModalOpen(true)}
             />
 
             {/* Lista de Organizações de Fotos */}
@@ -210,7 +237,7 @@ export const App: React.FC = () => {
                   <div>
                     <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>Nenhuma foto organizada</h4>
                     <p className="label-subtle" style={{ marginTop: '4px' }}>
-                      Crie um pacote pelo apelido ou tire foto da NF para começar
+                      Crie um pacote pelo apelido ou tire foto com a câmera
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
@@ -218,7 +245,7 @@ export const App: React.FC = () => {
                       <Plus size={16} />
                       Criar Apelido
                     </button>
-                    <button onClick={() => setIsScanOpen(true)} className="btn-primary">
+                    <button onClick={() => setIsAddPhotosOpen(true)} className="btn-primary">
                       <Camera size={16} />
                       Tirar Foto
                     </button>
@@ -235,14 +262,14 @@ export const App: React.FC = () => {
       <BottomNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onScanClick={() => setIsScanOpen(true)}
+        onScanClick={() => setIsAddPhotosOpen(true)}
       />
 
       {/* Modais */}
-      <ScanModal
-        isOpen={isScanOpen}
-        onClose={() => setIsScanOpen(false)}
-        onScanComplete={handleScanComplete}
+      <AddPhotosModal
+        isOpen={isAddPhotosOpen}
+        onClose={() => setIsAddPhotosOpen(false)}
+        onPhotosSelected={handlePhotosSelected}
       />
 
       <EditAlbumModal
@@ -250,8 +277,8 @@ export const App: React.FC = () => {
         onClose={() => setIsEditOpen(false)}
         onSave={handleSaveAlbum}
         initialData={editingAlbum}
-        ocrData={ocrData}
-        initialPhoto={scannedInitialPhoto}
+        initialPhotos={initialPhotos}
+        availableFolders={folders}
       />
 
       <AlbumDetailModal
@@ -261,12 +288,80 @@ export const App: React.FC = () => {
         onEdit={(alb) => {
           setIsDetailOpen(false);
           setEditingAlbum(alb);
-          setOcrData(null);
+          setInitialPhotos([]);
           setIsEditOpen(true);
         }}
         onDelete={handleDeleteAlbum}
         onAddPhoto={handleAddPhotoToAlbum}
       />
+
+      {/* Modal Rápido de Criar Nova Pasta */}
+      {isNewFolderModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '20px'
+        }}>
+          <div className="animate-slide-up" style={{
+            width: '100%',
+            maxWidth: '380px',
+            backgroundColor: 'var(--bg-card)',
+            borderRadius: 'var(--radius-card)',
+            border: '1px solid var(--border-active)',
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px'
+          }}>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>Criar Nova Pasta</h3>
+            <input
+              type="text"
+              placeholder="Nome da pasta (ex: Obra Matriz, Compras)"
+              value={newFolderNameInput}
+              onChange={(e) => setNewFolderNameInput(e.target.value)}
+              autoFocus
+              style={{
+                width: '100%',
+                backgroundColor: 'var(--bg-card-elevated)',
+                border: '1px solid var(--border-active)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '12px 14px',
+                color: '#FFFFFF',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
+              <button
+                onClick={() => {
+                  setIsNewFolderModalOpen(false);
+                  setNewFolderNameInput('');
+                }}
+                className="btn-secondary"
+                style={{ padding: '8px 14px', fontSize: '13px' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateNewFolder}
+                className="btn-primary"
+                style={{ padding: '8px 16px', fontSize: '13px' }}
+              >
+                Criar Pasta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

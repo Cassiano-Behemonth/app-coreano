@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { X, Check, Camera, Trash2, Plus, Tag, FileText, Folder } from 'lucide-react';
-import type { NFAlbum, PhotoAttachment, OCRQuickResult } from '../types';
+import { X, Check, Camera, Trash2, Plus, Tag, FileText, Folder, FolderPlus } from 'lucide-react';
+import type { NFAlbum, PhotoAttachment } from '../types';
 import confetti from 'canvas-confetti';
 
 interface EditAlbumModalProps {
@@ -8,8 +8,8 @@ interface EditAlbumModalProps {
   onClose: () => void;
   onSave: (album: NFAlbum) => void;
   initialData?: Partial<NFAlbum>;
-  ocrData?: OCRQuickResult | null;
-  initialPhoto?: string;
+  initialPhotos?: string[];
+  availableFolders: string[];
 }
 
 export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
@@ -17,27 +17,25 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
   onClose,
   onSave,
   initialData,
-  ocrData,
-  initialPhoto
+  initialPhotos = [],
+  availableFolders
 }) => {
-  const [nickname, setNickname] = useState(
-    initialData?.nickname || ocrData?.suggestedNickname || ''
-  );
-  const [invoiceNumber, setInvoiceNumber] = useState(
-    initialData?.invoiceNumber || ocrData?.invoiceNumber || ''
-  );
-  const [category, setCategory] = useState(initialData?.category || 'Geral');
-  
-  // Fotos anexas
+  const [nickname, setNickname] = useState(initialData?.nickname || '');
+  const [invoiceNumber, setInvoiceNumber] = useState(initialData?.invoiceNumber || '');
+  const [category, setCategory] = useState(initialData?.category || (availableFolders[0] || 'Geral'));
+  const [isCreatingNewFolder, setIsCreatingNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  // Inicializa fotos
   const [attachments, setAttachments] = useState<PhotoAttachment[]>(() => {
     const existing = initialData?.attachments || [];
-    if (initialPhoto && existing.length === 0) {
-      return [{
-        id: 'att_' + Date.now(),
-        dataUrl: initialPhoto,
-        caption: 'Foto da NF / Comprovante',
+    if (initialPhotos.length > 0 && existing.length === 0) {
+      return initialPhotos.map((url, idx) => ({
+        id: 'att_' + Date.now() + '_' + idx,
+        dataUrl: url,
+        caption: `Foto #${idx + 1}`,
         createdAt: Date.now()
-      }];
+      }));
     }
     return existing;
   });
@@ -70,18 +68,22 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
   };
 
   const handleSave = () => {
+    const finalCategory = isCreatingNewFolder && newFolderName.trim() 
+      ? newFolderName.trim() 
+      : (category.trim() || 'Geral');
+
     const finalAlbum: NFAlbum = {
       id: initialData?.id || 'album_' + Date.now(),
       nickname: nickname.trim() || (invoiceNumber ? `NF #${invoiceNumber}` : 'Nova Organização'),
       invoiceNumber: invoiceNumber.trim() || undefined,
-      category,
+      category: finalCategory,
       attachments,
       createdAt: initialData?.createdAt || Date.now(),
       updatedAt: Date.now()
     };
 
     confetti({
-      particleCount: 50,
+      particleCount: 40,
       spread: 60,
       origin: { y: 0.8 }
     });
@@ -124,7 +126,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
               {initialData?.id ? 'Editar Organização' : 'Nova Organização de Fotos'}
             </h2>
-            <p className="label-subtle" style={{ marginTop: '2px' }}>Apelido, Número da NF e Fotos vinculadas</p>
+            <p className="label-subtle" style={{ marginTop: '2px' }}>Defina o apelido, pasta e adicione as fotos</p>
           </div>
           <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }}>
             <X size={18} />
@@ -138,7 +140,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
           <div>
             <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <Tag size={13} color="#60A5FA" />
-              Apelido da Organização / Serviço
+              Apelido do Serviço / Nome da Organização
             </label>
             <input
               type="text"
@@ -160,22 +162,68 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             />
           </div>
 
-          {/* Número da NF & Categoria */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <FileText size={13} color="#34D399" />
-                Nº da NF (Opcional)
+          {/* Número da NF */}
+          <div>
+            <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <FileText size={13} color="#34D399" />
+              Nº da NF (Opcional)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: 2026/0084"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              style={{
+                width: '100%',
+                backgroundColor: 'var(--bg-card-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '10px 14px',
+                color: '#FFFFFF',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          {/* Pasta / Categoria com Criação Dinâmica */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Folder size={13} color="#F59E0B" />
+                Pasta de Destino
               </label>
+              <button
+                type="button"
+                onClick={() => setIsCreatingNewFolder(!isCreatingNewFolder)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#60A5FA',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <FolderPlus size={13} />
+                {isCreatingNewFolder ? 'Selecionar existente' : '+ Criar nova pasta'}
+              </button>
+            </div>
+
+            {isCreatingNewFolder ? (
               <input
                 type="text"
-                placeholder="Ex: 2026/0084"
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="Digite o nome da nova pasta..."
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                autoFocus
                 style={{
                   width: '100%',
                   backgroundColor: 'var(--bg-card-elevated)',
-                  border: '1px solid var(--border-subtle)',
+                  border: '1px solid #3B82F6',
                   borderRadius: 'var(--radius-sm)',
                   padding: '10px 14px',
                   color: '#FFFFFF',
@@ -183,13 +231,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                   outline: 'none'
                 }}
               />
-            </div>
-
-            <div>
-              <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <Folder size={13} />
-                Pasta / Categoria
-              </label>
+            ) : (
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -200,32 +242,29 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                   borderRadius: 'var(--radius-sm)',
                   padding: '10px 14px',
                   color: '#FFFFFF',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   outline: 'none'
                 }}
               >
-                <option value="Geral">Geral</option>
-                <option value="Manutenção">Manutenção</option>
-                <option value="Reforma & Obras">Reforma & Obras</option>
-                <option value="Serviços">Serviços</option>
-                <option value="Materiais">Materiais</option>
+                {availableFolders.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
               </select>
-            </div>
+            )}
           </div>
 
-          {/* Seção Principal de Fotos e Anexos */}
+          {/* Seção de Fotos e Anexos */}
           <div style={{ paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <div>
                 <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Camera size={16} color="#34D399" />
-                  Fotos do Serviço / Recibos ({attachments.length})
+                  Fotos e Comprovantes ({attachments.length})
                 </span>
                 <p className="label-subtle" style={{ fontSize: '11px' }}>Tire fotos ou adicione da galeria</p>
               </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>
-                {/* Botão Câmera Direta */}
                 <input
                   type="file"
                   accept="image/*"
@@ -243,7 +282,6 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                   <Camera size={14} /> Câmera
                 </button>
 
-                {/* Botão Galeria */}
                 <input
                   type="file"
                   accept="image/*"
@@ -263,7 +301,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
               </div>
             </div>
 
-            {/* Grid de Miniaturas com Opção de Exclusão */}
+            {/* Grid de Miniaturas */}
             {attachments.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                 {attachments.map((att) => (

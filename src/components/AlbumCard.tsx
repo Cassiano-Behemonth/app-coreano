@@ -1,7 +1,7 @@
-import React from 'react';
-import { Camera, Calendar, Share2, ChevronRight, FileText, Tag } from 'lucide-react';
+import React, { useState } from 'react';
+import { Camera, Calendar, Share2, ChevronRight, FileText, Tag, Check } from 'lucide-react';
 import type { NFAlbum } from '../types';
-import { shareAlbumPDF } from '../services/pdf';
+import { shareOrDownloadPDF } from '../services/pdf';
 
 interface AlbumCardProps {
   album: NFAlbum;
@@ -9,9 +9,15 @@ interface AlbumCardProps {
 }
 
 export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
+  const [isShared, setIsShared] = useState(false);
+
   const handleQuickShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await shareAlbumPDF(album);
+    const result = await shareOrDownloadPDF(album);
+    if (result.success) {
+      setIsShared(true);
+      setTimeout(() => setIsShared(false), 2500);
+    }
   };
 
   const formattedDate = new Date(album.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
@@ -54,7 +60,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
         </div>
       </div>
 
-      {/* Miniatura das 3 primeiras fotos (se existirem) */}
+      {/* Miniatura das fotos */}
       {album.attachments && album.attachments.length > 0 && (
         <div style={{ display: 'flex', gap: '6px', overflow: 'hidden', height: '52px', borderRadius: '8px' }}>
           {album.attachments.slice(0, 4).map((att) => (
@@ -73,7 +79,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
         </div>
       )}
 
-      {/* Rodapé do Card: Data e Compartilhamento */}
+      {/* Rodapé do Card */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Calendar size={11} /> {formattedDate}
@@ -84,16 +90,17 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
             onClick={handleQuickShare}
             aria-label="Compartilhar PDF"
             style={{
-              background: 'transparent',
+              background: isShared ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
               border: 'none',
-              color: 'var(--text-secondary)',
+              borderRadius: '6px',
+              color: isShared ? '#34D399' : 'var(--text-secondary)',
               padding: '6px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center'
             }}
           >
-            <Share2 size={16} />
+            {isShared ? <Check size={16} /> : <Share2 size={16} />}
           </button>
           <ChevronRight size={16} color="var(--text-muted)" />
         </div>
