@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Camera, Calendar, Share2, ChevronRight, FileText, Tag, Check } from 'lucide-react';
 import type { NFAlbum } from '../types';
-import { shareOrDownloadPDF } from '../services/pdf';
+import { shareAlbumPhotos } from '../services/sharePhotos';
 
 interface AlbumCardProps {
   album: NFAlbum;
@@ -13,7 +13,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
 
   const handleQuickShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const result = await shareOrDownloadPDF(album);
+    const result = await shareAlbumPhotos(album);
     if (result.success) {
       setIsShared(true);
       setTimeout(() => setIsShared(false), 2500);
@@ -88,7 +88,8 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <button
             onClick={handleQuickShare}
-            aria-label="Compartilhar PDF"
+            aria-label="Compartilhar Fotos"
+            title="Compartilhar Fotos"
             style={{
               background: isShared ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
               border: 'none',

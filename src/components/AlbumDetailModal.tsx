@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Share2, Edit3, Trash2, Tag, FileText, Camera, Plus, CheckCircle2, Download } from 'lucide-react';
+import { X, Share2, Edit3, Trash2, Tag, FileText, Camera, Plus, CheckCircle2, CheckSquare, Square, Download } from 'lucide-react';
 import type { NFAlbum, PhotoAttachment } from '../types';
-import { shareOrDownloadPDF } from '../services/pdf';
+import { shareAlbumPhotos } from '../services/sharePhotos';
 import confetti from 'canvas-confetti';
 
 interface AlbumDetailModalProps {
@@ -21,19 +21,45 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
   onDelete,
   onAddPhoto
 }) => {
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhotoZoom, setSelectedPhotoZoom] = useState<string | null>(null);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [isSharing, setIsSharing] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen || !album) return null;
 
-  const handleShare = async () => {
+  const allPhotos = album.attachments || [];
+  const selectedCount = selectedPhotoIds.length;
+
+  const toggleSelectPhoto = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedPhotoIds((prev) => 
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPhotoIds.length === allPhotos.length) {
+      setSelectedPhotoIds([]);
+    } else {
+      setSelectedPhotoIds(allPhotos.map((p) => p.id));
+    }
+  };
+
+  const handleShareSelected = async () => {
+    if (allPhotos.length === 0) return;
     setIsSharing(true);
     setShareFeedback(null);
+
+    const photosToShare = selectedCount > 0 
+      ? allPhotos.filter((p) => selectedPhotoIds.includes(p.id))
+      : allPhotos;
+
     try {
-      const result = await shareOrDownloadPDF(album);
+      const result = await shareAlbumPhotos(album, photosToShare);
       if (result.success) {
         confetti({
           particleCount: 40,
@@ -45,7 +71,7 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
       }
     } catch (err) {
       console.error(err);
-      setShareFeedback('Erro ao processar PDF');
+      setShareFeedback('Erro ao compartilhar fotos');
     } finally {
       setIsSharing(false);
     }
@@ -102,7 +128,7 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span className="badge-pill badge-emerald">
-              <CheckCircle2 size={12} /> Salvo Localmente
+              <CheckCircle2 size={12} /> Salvo no Aparelho
             </span>
           </div>
 
@@ -134,9 +160,9 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
         </div>
 
         {/* Conteúdo com Rolagem */}
-        <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* Apelido Principal */}
+          {/* Apelido e Pasta */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <span className="badge-pill badge-blue">
@@ -153,11 +179,11 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
               {album.nickname}
             </h2>
             <p className="label-subtle" style={{ marginTop: '4px' }}>
-              {album.attachments?.length || 0} fotos salvas • Criado em {new Date(album.createdAt).toLocaleDateString('pt-BR')}
+              {allPhotos.length} fotos salvas • Criado em {new Date(album.createdAt).toLocaleDateString('pt-BR')}
             </p>
           </div>
 
-          {/* Feedback de Compartilhamento/Download */}
+          {/* Feedback de Compartilhamento */}
           {shareFeedback && (
             <div style={{
               backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -176,13 +202,33 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
             </div>
           )}
 
-          {/* Galeria de Fotos e Comprovantes */}
+          {/* Galeria de Fotos */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Camera size={16} color="#34D399" />
-                Galeria de Fotos
-              </h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Camera size={16} color="#34D399" />
+                  Fotos ({allPhotos.length})
+                </h4>
+                {allPhotos.length > 0 && (
+                  <button
+                    onClick={toggleSelectAll}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#60A5FA',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {selectedPhotoIds.length === allPhotos.length ? 'Desmarcar todas' : 'Selecionar todas'}
+                  </button>
+                )}
+              </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>
                 <input
@@ -219,38 +265,65 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
               </div>
             </div>
 
-            {album.attachments && album.attachments.length > 0 ? (
+            {allPhotos.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                {album.attachments.map((att, idx) => (
-                  <div
-                    key={att.id}
-                    onClick={() => setSelectedPhoto(att.dataUrl)}
-                    style={{
-                      borderRadius: '14px',
-                      overflow: 'hidden',
-                      height: '130px',
-                      backgroundColor: '#000000',
-                      cursor: 'pointer',
-                      border: '1px solid var(--border-subtle)',
-                      position: 'relative'
-                    }}
-                  >
-                    <img src={att.dataUrl} alt={`Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      padding: '6px 8px',
-                      background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: '#FFFFFF'
-                    }}>
-                      {att.caption || `Foto #${idx + 1}`}
+                {allPhotos.map((att, idx) => {
+                  const isSelected = selectedPhotoIds.includes(att.id);
+                  return (
+                    <div
+                      key={att.id}
+                      onClick={() => setSelectedPhotoZoom(att.dataUrl)}
+                      style={{
+                        borderRadius: '14px',
+                        overflow: 'hidden',
+                        height: '130px',
+                        backgroundColor: '#000000',
+                        cursor: 'pointer',
+                        border: isSelected ? '2px solid #3B82F6' : '1px solid var(--border-subtle)',
+                        position: 'relative'
+                      }}
+                    >
+                      <img src={att.dataUrl} alt={`Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      
+                      {/* Checkbox de seleção */}
+                      <button
+                        type="button"
+                        onClick={(e) => toggleSelectPhoto(att.id, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          backgroundColor: isSelected ? '#3B82F6' : 'rgba(0,0,0,0.6)',
+                          border: 'none',
+                          borderRadius: '6px',
+                          width: '26px',
+                          height: '26px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#FFFFFF',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                      </button>
+
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: '6px 8px',
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#FFFFFF'
+                      }}>
+                        {att.caption || `Foto #${idx + 1}`}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div style={{ padding: '30px 10px', textAlign: 'center', backgroundColor: 'var(--bg-card-elevated)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-subtle)' }}>
@@ -262,25 +335,29 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
 
         </div>
 
-        {/* Rodapé Fixo com Botão de Compartilhamento em PDF */}
+        {/* Rodapé Fixo: Compartilhar Fotos Diretamente */}
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
           <button
-            onClick={handleShare}
-            disabled={isSharing}
+            onClick={handleShareSelected}
+            disabled={isSharing || allPhotos.length === 0}
             className="btn-primary"
             style={{ width: '100%', padding: '14px', fontSize: '15px' }}
           >
             <Share2 size={18} />
-            {isSharing ? 'Gerando PDF com Fotos...' : 'Exportar / Compartilhar Fotos em PDF'}
+            {isSharing 
+              ? 'Preparando Fotos...' 
+              : selectedCount > 0 
+                ? `Compartilhar ${selectedCount} Foto(s) Selecionada(s)`
+                : `Compartilhar Todas as ${allPhotos.length} Fotos`}
           </button>
         </div>
 
       </div>
 
       {/* Modal de Zoom de Imagem */}
-      {selectedPhoto && (
+      {selectedPhotoZoom && (
         <div
-          onClick={() => setSelectedPhoto(null)}
+          onClick={() => setSelectedPhotoZoom(null)}
           style={{
             position: 'fixed',
             top: 0,
@@ -295,9 +372,9 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
             padding: '20px'
           }}
         >
-          <img src={selectedPhoto} alt="Zoom" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: '12px' }} />
+          <img src={selectedPhotoZoom} alt="Zoom" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: '12px' }} />
           <button
-            onClick={() => setSelectedPhoto(null)}
+            onClick={() => setSelectedPhotoZoom(null)}
             className="btn-icon"
             style={{ position: 'absolute', top: '20px', right: '20px' }}
           >

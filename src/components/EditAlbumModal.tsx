@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Check, Camera, Trash2, Plus, Tag, FileText, Folder, FolderPlus } from 'lucide-react';
 import type { NFAlbum, PhotoAttachment } from '../types';
 import confetti from 'canvas-confetti';
@@ -20,28 +20,40 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
   initialPhotos = [],
   availableFolders
 }) => {
-  const [nickname, setNickname] = useState(initialData?.nickname || '');
-  const [invoiceNumber, setInvoiceNumber] = useState(initialData?.invoiceNumber || '');
-  const [category, setCategory] = useState(initialData?.category || (availableFolders[0] || 'Geral'));
+  const [nickname, setNickname] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [category, setCategory] = useState('Geral');
   const [isCreatingNewFolder, setIsCreatingNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-
-  // Inicializa fotos
-  const [attachments, setAttachments] = useState<PhotoAttachment[]>(() => {
-    const existing = initialData?.attachments || [];
-    if (initialPhotos.length > 0 && existing.length === 0) {
-      return initialPhotos.map((url, idx) => ({
-        id: 'att_' + Date.now() + '_' + idx,
-        dataUrl: url,
-        caption: `Foto #${idx + 1}`,
-        createdAt: Date.now()
-      }));
-    }
-    return existing;
-  });
+  const [attachments, setAttachments] = useState<PhotoAttachment[]>([]);
 
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Sincroniza dados sempre que o modal abre ou initialPhotos muda
+  useEffect(() => {
+    if (isOpen) {
+      setNickname(initialData?.nickname || '');
+      setInvoiceNumber(initialData?.invoiceNumber || '');
+      setCategory(initialData?.category || availableFolders[0] || 'Geral');
+      setIsCreatingNewFolder(false);
+      setNewFolderName('');
+
+      if (initialData?.attachments && initialData.attachments.length > 0) {
+        setAttachments(initialData.attachments);
+      } else if (initialPhotos && initialPhotos.length > 0) {
+        const mapped: PhotoAttachment[] = initialPhotos.map((url, idx) => ({
+          id: 'att_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
+          dataUrl: url,
+          caption: `Foto #${idx + 1}`,
+          createdAt: Date.now()
+        }));
+        setAttachments(mapped);
+      } else {
+        setAttachments([]);
+      }
+    }
+  }, [isOpen, initialData, initialPhotos, availableFolders]);
 
   if (!isOpen) return null;
 
@@ -77,7 +89,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
       nickname: nickname.trim() || (invoiceNumber ? `NF #${invoiceNumber}` : 'Nova Organização'),
       invoiceNumber: invoiceNumber.trim() || undefined,
       category: finalCategory,
-      attachments,
+      attachments: attachments,
       createdAt: initialData?.createdAt || Date.now(),
       updatedAt: Date.now()
     };
@@ -126,7 +138,9 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
               {initialData?.id ? 'Editar Organização' : 'Nova Organização de Fotos'}
             </h2>
-            <p className="label-subtle" style={{ marginTop: '2px' }}>Defina o apelido, pasta e adicione as fotos</p>
+            <p className="label-subtle" style={{ marginTop: '2px' }}>
+              {attachments.length} foto(s) pronta(s) para salvar
+            </p>
           </div>
           <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }}>
             <X size={18} />
@@ -140,7 +154,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
           <div>
             <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <Tag size={13} color="#60A5FA" />
-              Apelido do Serviço / Nome da Organização
+              Apelido do Serviço / Nome da Pasta
             </label>
             <input
               type="text"
@@ -186,7 +200,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             />
           </div>
 
-          {/* Pasta / Categoria com Criação Dinâmica */}
+          {/* Pasta / Categoria */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -253,15 +267,15 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             )}
           </div>
 
-          {/* Seção de Fotos e Anexos */}
+          {/* Galeria de Fotos */}
           <div style={{ paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <div>
                 <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Camera size={16} color="#34D399" />
-                  Fotos e Comprovantes ({attachments.length})
+                  Fotos do Serviço ({attachments.length})
                 </span>
-                <p className="label-subtle" style={{ fontSize: '11px' }}>Tire fotos ou adicione da galeria</p>
+                <p className="label-subtle" style={{ fontSize: '11px' }}>Adicione mais fotos se desejar</p>
               </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -349,7 +363,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             style={{ width: '100%', padding: '14px', fontSize: '15px' }}
           >
             <Check size={18} />
-            Salvar Organização
+            Salvar Organização ({attachments.length} fotos)
           </button>
         </div>
 
