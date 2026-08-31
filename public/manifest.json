@@ -1,7 +1,7 @@
 {
-  "name": "NFS-e Manager",
-  "short_name": "NFSe Manager",
-  "description": "Organizador de Fotos e Comprovantes Offline",
+  "name": "Chongi-Manager",
+  "short_name": "Chongi",
+  "description": "Organizador de Fotos e Comprovantes",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

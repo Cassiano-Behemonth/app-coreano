@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { NFAlbum } from '../types';
-import { createRealDeviceFolder, savePhotoToRealDeviceFolder } from './deviceStorage';
+import { createRealDeviceFolder, savePhotoToRealDeviceFolder, deleteRealDeviceFolder } from './deviceStorage';
 
 export interface FolderItem {
   id: string;
@@ -8,22 +8,22 @@ export interface FolderItem {
   createdAt: number;
 }
 
-export class NFSePhotoDatabase extends Dexie {
+export class ChongiDatabase extends Dexie {
   albums!: Table<NFAlbum, string>;
   folders!: Table<FolderItem, string>;
 
   constructor() {
-    super('NFSePhotoDB_v4');
-    this.version(4).stores({
+    super('ChongiPhotoDB_v5');
+    this.version(5).stores({
       albums: 'id, nickname, invoiceNumber, category, createdAt',
       folders: 'id, name, createdAt'
     });
   }
 }
 
-export const db = new NFSePhotoDatabase();
+export const db = new ChongiDatabase();
 
-// --- Álbuns / Organizações ---
+// --- Álbuns / Registros ---
 export async function getAllAlbums(): Promise<NFAlbum[]> {
   try {
     return await db.albums.orderBy('createdAt').reverse().toArray();
@@ -38,16 +38,14 @@ export async function getAlbumById(id: string): Promise<NFAlbum | undefined> {
 }
 
 export async function saveAlbum(album: NFAlbum): Promise<string> {
-  // Cria a pasta física real no celular
   const folderName = album.category?.trim() || 'Minhas Fotos';
   await createRealDeviceFolder(folderName);
   await ensureFolderExists(folderName);
 
-  // Grava cada foto na pasta física do aparelho em background
   if (album.attachments && album.attachments.length > 0) {
     album.attachments.forEach(async (att, idx) => {
       const ext = att.dataUrl.includes('image/png') ? 'png' : 'jpg';
-      const cleanNick = (album.nickname || 'comprovante').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanNick = (album.nickname || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_');
       const fileName = `${cleanNick}_${idx + 1}.${ext}`;
       await savePhotoToRealDeviceFolder(folderName, fileName, att.dataUrl);
     });
@@ -61,7 +59,7 @@ export async function deleteAlbum(id: string): Promise<void> {
   await db.albums.delete(id);
 }
 
-// --- Pastas Dinâmicas Criadas pelo Usuário ---
+// --- Pastas Dinâmicas ---
 export async function getAllFolders(): Promise<string[]> {
   try {
     const list = await db.folders.orderBy('name').toArray();
@@ -82,7 +80,6 @@ export async function createCustomFolder(name: string): Promise<string> {
   const clean = name.trim();
   if (!clean) return '';
 
-  // Cria pasta física real no celular
   await createRealDeviceFolder(clean);
 
   const existing = await db.folders.where('name').equalsIgnoreCase(clean).first();
@@ -101,6 +98,22 @@ export async function ensureFolderExists(name: string): Promise<void> {
   await createCustomFolder(name);
 }
 
-export async function deleteFolder(folderName: string): Promise<void> {
-  await db.folders.where('name').equalsIgnoreCase(folderName.trim()).delete();
+/**
+ * Remove a pasta, seu diretório físico no celular e opcionalmente seus registros
+ */
+export async function deleteFolderAndContents(folderName: string): Promise<void> {
+  const clean = folderName.trim();
+  if (!clean) return;
+
+  // 1. Remove os álbuns vinculados a essa pasta
+  const linkedAlbums = await db.albums.where('category').equalsIgnoreCase(clean).toArray();
+  for (const album of linkedAlbums) {
+    await db.albums.delete(album.id);
+  }
+
+  // 2. Remove o registro da pasta no banco
+  await db.folders.where('name').equalsIgnoreCase(clean).delete();
+
+  // 3. Remove a pasta física do celular
+  await deleteRealDeviceFolder(clean);
 }

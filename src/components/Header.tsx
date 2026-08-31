@@ -20,13 +20,10 @@ export const Header: React.FC<HeaderProps> = ({
     <header style={{ padding: '20px 20px 10px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="title-large" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            NFS-e
-            <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600 }}>
-              OFFLINE
-            </span>
+          <h1 className="title-large" style={{ display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '-0.03em' }}>
+            Chongi-Manager
           </h1>
-          <p className="label-subtle" style={{ marginTop: '2px' }}>Notas & Comprovantes</p>
+          <p className="label-subtle" style={{ marginTop: '2px' }}>Fotos & Comprovantes</p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -42,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button 
             className="btn-icon"
             onClick={onScanClick}
-            aria-label="Adicionar nova nota"
+            aria-label="Adicionar foto"
             style={{ backgroundColor: '#FFFFFF', color: '#09090B' }}
           >
             <Plus size={20} strokeWidth={2.5} color="#09090B" />
@@ -54,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="animate-slide-up" style={{ position: 'relative' }}>
           <input
             type="text"
-            placeholder="Buscar por apelido, prestador, nº ou valor..."
+            placeholder="Buscar por apelido, pasta ou nº da NF..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             autoFocus

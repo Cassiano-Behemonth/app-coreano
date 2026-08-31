@@ -28,12 +28,12 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
       {/* 1. Top Card Largo: Total de Fotos Armazenadas */}
       <div 
         className="bento-card bento-card-elevated"
-        style={{ minHeight: '110px', cursor: latestAlbum ? 'pointer' : 'default' }}
+        style={{ minHeight: '100px', cursor: latestAlbum ? 'pointer' : 'default' }}
         onClick={() => latestAlbum && onAlbumClick(latestAlbum)}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <span className="label-subtle">Total de Fotos & Comprovantes</span>
+            <span className="label-subtle">Total de Fotos Salvas</span>
             <div className="metric-huge" style={{ marginTop: '4px' }}>
               {totalPhotos} <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-secondary)' }}>fotos</span>
             </div>
@@ -43,46 +43,46 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
           <span style={{ fontSize: '11px', color: '#71717A' }}>
-            {latestAlbum ? `Último: ${latestAlbum.nickname}` : 'Nenhuma foto salva'}
+            {latestAlbum ? `Último: ${latestAlbum.nickname}` : 'Nenhum registro adicionado'}
           </span>
-          <span className="badge-pill badge-emerald">
-            100% Offline
+          <span style={{ fontSize: '11px', color: '#60A5FA', fontWeight: 600 }}>
+            {albums.length} pacote(s)
           </span>
         </div>
       </div>
 
-      {/* 2. Grid de 2 Colunas: Pacotes vs Fotos */}
+      {/* 2. Grid de 2 Colunas: Registros vs Fotos */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         
-        <div className="bento-card" style={{ height: '130px' }}>
+        <div className="bento-card" style={{ height: '120px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Layers size={20} color="#60A5FA" />
-            <span className="label-subtle">Organizações</span>
+            <span className="label-subtle">Pacotes</span>
           </div>
 
           <div>
-            <div className="metric-huge" style={{ fontSize: '32px' }}>{albums.length}</div>
+            <div className="metric-huge" style={{ fontSize: '30px' }}>{albums.length}</div>
             <div className="label-subtle" style={{ marginTop: '2px' }}>Registros</div>
           </div>
         </div>
 
-        <div className="bento-card" style={{ height: '130px' }}>
+        <div className="bento-card" style={{ height: '120px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Camera size={20} color="#34D399" />
             <span className="label-subtle">Mídia</span>
           </div>
 
           <div>
-            <div className="metric-huge" style={{ fontSize: '32px' }}>{totalPhotos}</div>
+            <div className="metric-huge" style={{ fontSize: '30px' }}>{totalPhotos}</div>
             <div className="label-subtle" style={{ marginTop: '2px' }}>Fotos Salvas</div>
           </div>
         </div>
 
       </div>
 
-      {/* 3. Filtros por Pastas Reais Criadas */}
+      {/* 3. Filtros por Pastas */}
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', alignItems: 'center' }}>
         <button
           onClick={() => onSelectCategory(null)}

@@ -13,9 +13,10 @@ import {
   saveAlbum, 
   deleteAlbum, 
   getAllFolders,
-  createCustomFolder
+  createCustomFolder,
+  deleteFolderAndContents
 } from './services/db';
-import { Plus, Camera, Folder, ArrowRight, FolderPlus } from 'lucide-react';
+import { Plus, Camera, Folder, ArrowRight, FolderPlus, Trash2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [albums, setAlbums] = useState<NFAlbum[]>([]);
@@ -48,7 +49,7 @@ export const App: React.FC = () => {
     setFolders(folderList);
   };
 
-  // Captura instantânea de fotos (sem delay)
+  // Captura instantânea de fotos
   const handlePhotosSelected = (photoDataUrls: string[]) => {
     setIsAddPhotosOpen(false);
     setInitialPhotos(photoDataUrls);
@@ -73,11 +74,22 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteAlbum = async (id: string) => {
-    if (window.confirm('Excluir esta organização e todas as suas fotos?')) {
+    if (window.confirm('Excluir este registro e todas as suas fotos?')) {
       await deleteAlbum(id);
       await refreshAll();
       setIsDetailOpen(false);
       setSelectedAlbum(null);
+    }
+  };
+
+  const handleDeleteFolder = async (folderName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(`Tem certeza que deseja excluir a pasta "${folderName}" e todas as fotos dentro dela?`)) {
+      await deleteFolderAndContents(folderName);
+      if (selectedCategory === folderName) {
+        setSelectedCategory(null);
+      }
+      await refreshAll();
     }
   };
 
@@ -132,7 +144,7 @@ export const App: React.FC = () => {
         onSearchChange={setSearchQuery}
       />
 
-      {/* Banner de Instalação na Gaveta de Apps */}
+      {/* Banner de Instalação */}
       <InstallAppBanner />
 
       {/* Conteúdo Principal */}
@@ -177,9 +189,27 @@ export const App: React.FC = () => {
                           <p className="label-subtle">{catAlbums.length} pacote(s) • {catPhotos} foto(s)</p>
                         </div>
                       </div>
-                      <span style={{ fontSize: '12px', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                        Ver <ArrowRight size={14} />
-                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={(e) => handleDeleteFolder(cat, e)}
+                          title="Excluir esta pasta"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '6px',
+                            color: '#F43F5E',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <span style={{ fontSize: '12px', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          <ArrowRight size={14} />
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -226,11 +256,11 @@ export const App: React.FC = () => {
               onAddNewFolder={() => setIsNewFolderModalOpen(true)}
             />
 
-            {/* Lista de Organizações de Fotos */}
+            {/* Lista de Registros */}
             <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                 <span className="label-subtle" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '11px' }}>
-                  {selectedCategory ? `Pastas em "${selectedCategory}"` : 'Organizações Recentes'} ({filteredAlbums.length})
+                  {selectedCategory ? `Pastas em "${selectedCategory}"` : 'Registros Recentes'} ({filteredAlbums.length})
                 </span>
                 {selectedCategory && (
                   <button
@@ -351,7 +381,7 @@ export const App: React.FC = () => {
             flexDirection: 'column',
             gap: '14px'
           }}>
-            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>Criar Nova Pasta no Celular</h3>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>Criar Nova Pasta</h3>
             <input
               type="text"
               placeholder="Nome da pasta (ex: Obra Matriz, Compras)"
