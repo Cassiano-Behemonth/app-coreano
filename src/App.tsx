@@ -11,7 +11,6 @@ import {
   getAllAlbums, 
   saveAlbum, 
   deleteAlbum, 
-  seedInitialDataIfEmpty,
   getAllFolders,
   createCustomFolder
 } from './services/db';
@@ -19,7 +18,7 @@ import { Plus, Camera, Folder, ArrowRight, FolderPlus } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [albums, setAlbums] = useState<NFAlbum[]>([]);
-  const [folders, setFolders] = useState<string[]>(['Geral']);
+  const [folders, setFolders] = useState<string[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -38,11 +37,7 @@ export const App: React.FC = () => {
   const [selectedAlbum, setSelectedAlbum] = useState<NFAlbum | null>(null);
 
   useEffect(() => {
-    async function loadData() {
-      await seedInitialDataIfEmpty();
-      await refreshAll();
-    }
-    loadData();
+    refreshAll();
   }, []);
 
   const refreshAll = async () => {
@@ -86,7 +81,7 @@ export const App: React.FC = () => {
   };
 
   const handleAddPhotoToAlbum = async (albumId: string, newPhoto: PhotoAttachment) => {
-    const album = albums.find(a => a.id === albumId);
+    const album = albums.find((a) => a.id === albumId);
     if (!album) return;
 
     const updated: NFAlbum = {
@@ -113,13 +108,13 @@ export const App: React.FC = () => {
     setIsDetailOpen(true);
   };
 
-  const filteredAlbums = albums.filter(album => {
+  const filteredAlbums = albums.filter((album) => {
     const matchesSearch = searchQuery === '' || 
       album.nickname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       album.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       album.category?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = selectedCategory === null || (album.category || 'Geral') === selectedCategory;
+    const matchesCategory = selectedCategory === null || album.category === selectedCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -153,37 +148,67 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            {folders.map(cat => {
-              const catAlbums = albums.filter(a => (a.category || 'Geral') === cat);
-              const catPhotos = catAlbums.reduce((acc, a) => acc + (a.attachments?.length || 0), 0);
+            {folders.length > 0 ? (
+              folders.map((cat) => {
+                const catAlbums = albums.filter((a) => a.category === cat);
+                const catPhotos = catAlbums.reduce((acc, a) => acc + (a.attachments?.length || 0), 0);
 
-              return (
-                <div
-                  key={cat}
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setActiveTab('grid');
-                  }}
-                  className="bento-card"
-                  style={{ cursor: 'pointer', gap: '10px' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Folder size={20} color="#60A5FA" />
+                return (
+                  <div
+                    key={cat}
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setActiveTab('grid');
+                    }}
+                    className="bento-card"
+                    style={{ cursor: 'pointer', gap: '10px' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Folder size={20} color="#60A5FA" />
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>{cat}</h3>
+                          <p className="label-subtle">{catAlbums.length} pacote(s) • {catPhotos} foto(s)</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>{cat}</h3>
-                        <p className="label-subtle">{catAlbums.length} pacote(s) • {catPhotos} foto(s)</p>
-                      </div>
+                      <span style={{ fontSize: '12px', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        Ver <ArrowRight size={14} />
+                      </span>
                     </div>
-                    <span style={{ fontSize: '12px', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                      Ver <ArrowRight size={14} />
-                    </span>
                   </div>
+                );
+              })
+            ) : (
+              <div style={{
+                padding: '36px 20px',
+                textAlign: 'center',
+                backgroundColor: 'var(--bg-card)',
+                borderRadius: 'var(--radius-card)',
+                border: '1px dashed var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <Folder size={32} color="#71717A" />
+                <div>
+                  <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>Nenhuma pasta criada ainda</h4>
+                  <p className="label-subtle" style={{ marginTop: '4px' }}>
+                    Crie uma pasta física no seu celular para organizar suas fotos
+                  </p>
                 </div>
-              );
-            })}
+                <button
+                  onClick={() => setIsNewFolderModalOpen(true)}
+                  className="btn-primary"
+                  style={{ marginTop: '6px' }}
+                >
+                  <Plus size={16} />
+                  Criar Primeira Pasta
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           /* Dashboard Principal Bento Grid */
@@ -201,7 +226,7 @@ export const App: React.FC = () => {
             <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                 <span className="label-subtle" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '11px' }}>
-                  {selectedCategory ? `Organizações em "${selectedCategory}"` : 'Organizações Recentes'} ({filteredAlbums.length})
+                  {selectedCategory ? `Pastas em "${selectedCategory}"` : 'Organizações Recentes'} ({filteredAlbums.length})
                 </span>
                 {selectedCategory && (
                   <button
@@ -295,7 +320,7 @@ export const App: React.FC = () => {
         onAddPhoto={handleAddPhotoToAlbum}
       />
 
-      {/* Modal Rápido de Criar Nova Pasta */}
+      {/* Modal de Criar Nova Pasta Física */}
       {isNewFolderModalOpen && (
         <div style={{
           position: 'fixed',
@@ -322,7 +347,7 @@ export const App: React.FC = () => {
             flexDirection: 'column',
             gap: '14px'
           }}>
-            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>Criar Nova Pasta</h3>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>Criar Nova Pasta no Celular</h3>
             <input
               type="text"
               placeholder="Nome da pasta (ex: Obra Matriz, Compras)"

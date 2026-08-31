@@ -22,7 +22,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
 }) => {
   const [nickname, setNickname] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [category, setCategory] = useState('Geral');
+  const [category, setCategory] = useState('');
   const [isCreatingNewFolder, setIsCreatingNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [attachments, setAttachments] = useState<PhotoAttachment[]>([]);
@@ -30,13 +30,23 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Sincroniza dados sempre que o modal abre ou initialPhotos muda
   useEffect(() => {
     if (isOpen) {
       setNickname(initialData?.nickname || '');
       setInvoiceNumber(initialData?.invoiceNumber || '');
-      setCategory(initialData?.category || availableFolders[0] || 'Geral');
-      setIsCreatingNewFolder(false);
+      
+      const hasExistingFolders = availableFolders.length > 0;
+      if (initialData?.category) {
+        setCategory(initialData.category);
+        setIsCreatingNewFolder(false);
+      } else if (hasExistingFolders) {
+        setCategory(availableFolders[0]);
+        setIsCreatingNewFolder(false);
+      } else {
+        setCategory('');
+        setIsCreatingNewFolder(true); // Se não tem pasta nenhuma, abre direto o campo de digitar o nome da pasta
+      }
+
       setNewFolderName('');
 
       if (initialData?.attachments && initialData.attachments.length > 0) {
@@ -82,7 +92,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
   const handleSave = () => {
     const finalCategory = isCreatingNewFolder && newFolderName.trim() 
       ? newFolderName.trim() 
-      : (category.trim() || 'Geral');
+      : (category.trim() || 'Minhas Fotos');
 
     const finalAlbum: NFAlbum = {
       id: initialData?.id || 'album_' + Date.now(),
@@ -139,7 +149,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
               {initialData?.id ? 'Editar Organização' : 'Nova Organização de Fotos'}
             </h2>
             <p className="label-subtle" style={{ marginTop: '2px' }}>
-              {attachments.length} foto(s) pronta(s) para salvar
+              {attachments.length} foto(s) para salvar na pasta
             </p>
           </div>
           <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }}>
@@ -154,7 +164,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
           <div>
             <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <Tag size={13} color="#60A5FA" />
-              Apelido do Serviço / Nome da Pasta
+              Apelido do Serviço / Nome do Registro
             </label>
             <input
               type="text"
@@ -200,40 +210,42 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             />
           </div>
 
-          {/* Pasta / Categoria */}
+          {/* Pasta no Celular */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Folder size={13} color="#F59E0B" />
-                Pasta de Destino
+                Pasta Física no Celular
               </label>
-              <button
-                type="button"
-                onClick={() => setIsCreatingNewFolder(!isCreatingNewFolder)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#60A5FA',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <FolderPlus size={13} />
-                {isCreatingNewFolder ? 'Selecionar existente' : '+ Criar nova pasta'}
-              </button>
+              {availableFolders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNewFolder(!isCreatingNewFolder)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#60A5FA',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <FolderPlus size={13} />
+                  {isCreatingNewFolder ? 'Escolher existente' : '+ Nova pasta'}
+                </button>
+              )}
             </div>
 
-            {isCreatingNewFolder ? (
+            {isCreatingNewFolder || availableFolders.length === 0 ? (
               <input
                 type="text"
-                placeholder="Digite o nome da nova pasta..."
+                placeholder="Digite o nome da pasta (ex: Obras, Compras, Manutenções)..."
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                autoFocus
+                autoFocus={availableFolders.length === 0}
                 style={{
                   width: '100%',
                   backgroundColor: 'var(--bg-card-elevated)',
@@ -347,7 +359,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             ) : (
               <div style={{ padding: '24px 10px', textAlign: 'center', backgroundColor: 'var(--bg-card-elevated)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-subtle)' }}>
                 <Camera size={26} color="#71717A" style={{ margin: '0 auto 6px auto' }} />
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Nenhuma foto adicionada ainda.</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Nenhuma foto anexada ainda.</p>
               </div>
             )}
           </div>
@@ -363,7 +375,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             style={{ width: '100%', padding: '14px', fontSize: '15px' }}
           >
             <Check size={18} />
-            Salvar Organização ({attachments.length} fotos)
+            Salvar na Pasta ({attachments.length} fotos)
           </button>
         </div>
 

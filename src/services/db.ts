@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { NFAlbum } from '../types';
+import { createRealDeviceFolder, savePhotoToRealDeviceFolder } from './deviceStorage';
 
 export interface FolderItem {
   id: string;
@@ -12,8 +13,8 @@ export class NFSePhotoDatabase extends Dexie {
   folders!: Table<FolderItem, string>;
 
   constructor() {
-    super('NFSePhotoDB_v3');
-    this.version(3).stores({
+    super('NFSePhotoDB_v4');
+    this.version(4).stores({
       albums: 'id, nickname, invoiceNumber, category, createdAt',
       folders: 'id, name, createdAt'
     });
@@ -37,11 +38,22 @@ export async function getAlbumById(id: string): Promise<NFAlbum | undefined> {
 }
 
 export async function saveAlbum(album: NFAlbum): Promise<string> {
-  await db.albums.put(album);
-  // Garante que a pasta do álbum exista na lista de pastas
-  if (album.category && album.category.trim() !== '') {
-    await ensureFolderExists(album.category.trim());
+  // Cria a pasta física real no celular
+  const folderName = album.category?.trim() || 'Minhas Fotos';
+  await createRealDeviceFolder(folderName);
+  await ensureFolderExists(folderName);
+
+  // Grava cada foto na pasta física do aparelho em background
+  if (album.attachments && album.attachments.length > 0) {
+    album.attachments.forEach(async (att, idx) => {
+      const ext = att.dataUrl.includes('image/png') ? 'png' : 'jpg';
+      const cleanNick = (album.nickname || 'comprovante').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${cleanNick}_${idx + 1}.${ext}`;
+      await savePhotoToRealDeviceFolder(folderName, fileName, att.dataUrl);
+    });
   }
+
+  await db.albums.put(album);
   return album.id;
 }
 
@@ -49,24 +61,30 @@ export async function deleteAlbum(id: string): Promise<void> {
   await db.albums.delete(id);
 }
 
-// --- Pastas / Categorias Dinâmicas ---
+// --- Pastas Dinâmicas Criadas pelo Usuário ---
 export async function getAllFolders(): Promise<string[]> {
   try {
     const list = await db.folders.orderBy('name').toArray();
-    const folderNames = list.map(f => f.name);
-    // Combina com categorias de álbuns existentes caso alguma não esteja na tabela
-    const albumCategories = (await db.albums.toArray()).map(a => a.category).filter(Boolean);
-    const unique = Array.from(new Set([...folderNames, ...albumCategories, 'Geral']));
+    const folderNames = list.map(f => f.name.trim()).filter(Boolean);
+    const albumCategories = (await db.albums.toArray())
+      .map(a => a.category?.trim())
+      .filter(Boolean);
+
+    const unique = Array.from(new Set([...folderNames, ...albumCategories]));
     return unique;
   } catch (error) {
     console.error('Erro ao buscar pastas:', error);
-    return ['Geral'];
+    return [];
   }
 }
 
-export async function createCustomFolder(name: string): Promise<void> {
+export async function createCustomFolder(name: string): Promise<string> {
   const clean = name.trim();
-  if (!clean) return;
+  if (!clean) return '';
+
+  // Cria pasta física real no celular
+  await createRealDeviceFolder(clean);
+
   const existing = await db.folders.where('name').equalsIgnoreCase(clean).first();
   if (!existing) {
     await db.folders.add({
@@ -75,28 +93,14 @@ export async function createCustomFolder(name: string): Promise<void> {
       createdAt: Date.now()
     });
   }
+
+  return clean;
 }
 
 export async function ensureFolderExists(name: string): Promise<void> {
   await createCustomFolder(name);
 }
 
-export async function seedInitialDataIfEmpty(): Promise<void> {
-  const count = await db.albums.count();
-  if (count === 0) {
-    await createCustomFolder('Geral');
-    await createCustomFolder('Manutenção');
-    await createCustomFolder('Reforma & Obras');
-    
-    const sampleAlbum: NFAlbum = {
-      id: 'album_' + Date.now(),
-      nickname: 'Conserto Ar Condicionado',
-      invoiceNumber: '2026/0084',
-      category: 'Manutenção',
-      attachments: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    await db.albums.add(sampleAlbum);
-  }
+export async function deleteFolder(folderName: string): Promise<void> {
+  await db.folders.where('name').equalsIgnoreCase(folderName.trim()).delete();
 }

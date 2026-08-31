@@ -1,3 +1,6 @@
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import type { NFAlbum, PhotoAttachment } from '../types';
 
 /**
@@ -18,6 +21,7 @@ export function dataURLtoFile(dataUrl: string, filename: string): File {
 
 /**
  * Compartilha as fotos reais diretamente com qualquer aplicativo (WhatsApp, Drive, Email, etc.)
+ * Utiliza o Share Nativo do Android/iOS via Capacitor quando no celular, com fallback para Web Share.
  */
 export async function shareAlbumPhotos(
   album: NFAlbum, 
@@ -28,47 +32,89 @@ export async function shareAlbumPhotos(
     : album.attachments;
 
   if (!photosToShare || photosToShare.length === 0) {
-    return { success: false, message: 'Nenhuma foto para compartilhar.' };
+    return { success: false, message: 'Nenhuma foto selecionada para compartilhar.' };
   }
 
+  const cleanName = (album.nickname || 'comprovante').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  // --- ESTRATÉGIA 1: Compartilhamento Nativo Capacitor (Android / iOS) ---
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const fileUris: string[] = [];
+
+      for (let i = 0; i < photosToShare.length; i++) {
+        const photo = photosToShare[i];
+        const base64Data = photo.dataUrl.includes('base64,') 
+          ? photo.dataUrl.split('base64,')[1] 
+          : photo.dataUrl;
+
+        const ext = photo.dataUrl.includes('image/png') ? 'png' : 'jpg';
+        const fileName = `${cleanName}_foto_${i + 1}_${Date.now()}.${ext}`;
+
+        const savedFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+
+        fileUris.push(savedFile.uri);
+      }
+
+      await Share.share({
+        title: album.nickname,
+        text: `Fotos de ${album.nickname} ${album.invoiceNumber ? `(NF #${album.invoiceNumber})` : ''}`,
+        files: fileUris,
+        dialogTitle: 'Compartilhar fotos com...'
+      });
+
+      return { success: true, message: 'Compartilhado com sucesso!' };
+    } catch (nativeErr: any) {
+      if (nativeErr.message?.includes('canceled') || nativeErr.message?.includes('abort')) {
+        return { success: true, message: 'Compartilhamento cancelado.' };
+      }
+      console.warn('Falha no Share Nativo, tentando Web Share:', nativeErr);
+    }
+  }
+
+  // --- ESTRATÉGIA 2: Web Share API (Navegador do Celular / Chrome / Safari) ---
   try {
     const files: File[] = photosToShare.map((photo, index) => {
       const ext = photo.dataUrl.includes('image/png') ? 'png' : 'jpg';
-      const cleanName = (album.nickname || 'comprovante').replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `${cleanName}_foto_${index + 1}.${ext}`;
       return dataURLtoFile(photo.dataUrl, filename);
     });
 
-    // 1. Tenta compartilhamento nativo no celular com os arquivos de imagem reais
     if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
-      try {
-        await navigator.share({
-          title: album.nickname,
-          text: `Fotos de ${album.nickname} ${album.invoiceNumber ? `(NF #${album.invoiceNumber})` : ''}`,
-          files: files
-        });
-        return { success: true, message: 'Fotos compartilhadas com sucesso!' };
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          return { success: true, message: 'Compartilhamento cancelado.' };
-        }
-        console.warn('Erro ao compartilhar via Web Share:', err);
-      }
+      await navigator.share({
+        title: album.nickname,
+        text: `Fotos: ${album.nickname}`,
+        files: files
+      });
+      return { success: true, message: 'Fotos compartilhadas com sucesso!' };
+    } else if (navigator.share) {
+      // Alguns navegadores web aceitam compartilhar url/texto
+      await navigator.share({
+        title: album.nickname,
+        text: `Fotos de ${album.nickname} (${photosToShare.length} foto(s))`
+      });
+      return { success: true, message: 'Compartilhado com sucesso!' };
     }
-
-    // 2. Fallback: Baixa as fotos no aparelho
-    photosToShare.forEach((photo, idx) => {
-      const link = document.createElement('a');
-      link.href = photo.dataUrl;
-      link.download = `${(album.nickname || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_')}_${idx + 1}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
-
-    return { success: true, message: `${photosToShare.length} foto(s) baixada(s) no aparelho!` };
-  } catch (error) {
-    console.error('Erro ao compartilhar fotos:', error);
-    return { success: false, message: 'Não foi possível compartilhar as fotos.' };
+  } catch (webErr: any) {
+    if (webErr.name === 'AbortError') {
+      return { success: true, message: 'Compartilhamento cancelado.' };
+    }
+    console.warn('Web Share não aceitou arquivos diretamente neste navegador:', webErr);
   }
+
+  // --- ESTRATÉGIA 3: Fallback em Navegadores de Desktop (Download Direto) ---
+  photosToShare.forEach((photo, idx) => {
+    const link = document.createElement('a');
+    link.href = photo.dataUrl;
+    link.download = `${cleanName}_${idx + 1}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  return { success: true, message: 'Navegador de desktop detectado: fotos baixadas na pasta de Downloads.' };
 }
