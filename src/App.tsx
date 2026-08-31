@@ -5,6 +5,7 @@ import { AlbumCard } from './components/AlbumCard';
 import { AddPhotosModal } from './components/AddPhotosModal';
 import { EditAlbumModal } from './components/EditAlbumModal';
 import { AlbumDetailModal } from './components/AlbumDetailModal';
+import { InstallAppBanner } from './components/InstallAppBanner';
 import { BottomNav } from './components/BottomNav';
 import type { NFAlbum, PhotoAttachment } from './types';
 import { 
@@ -47,7 +48,7 @@ export const App: React.FC = () => {
     setFolders(folderList);
   };
 
-  // Captura instantânea de fotos (sem OCR e sem delay)
+  // Captura instantânea de fotos (sem delay)
   const handlePhotosSelected = (photoDataUrls: string[]) => {
     setIsAddPhotosOpen(false);
     setInitialPhotos(photoDataUrls);
@@ -130,6 +131,9 @@ export const App: React.FC = () => {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
+
+      {/* Banner de Instalação na Gaveta de Apps */}
+      <InstallAppBanner />
 
       {/* Conteúdo Principal */}
       <main style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '4px' }}>

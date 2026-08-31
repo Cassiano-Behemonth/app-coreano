@@ -1,18 +1,31 @@
 {
   "name": "NFS-e Manager",
   "short_name": "NFSe Manager",
-  "description": "Organizador Offline de NFS-e, OCR e Comprovantes",
+  "description": "Organizador de Fotos e Comprovantes Offline",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#09090B",
   "theme_color": "#09090B",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "192x192 512x512",
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

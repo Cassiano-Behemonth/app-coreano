@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Share2, Edit3, Trash2, Tag, FileText, Camera, Plus, CheckCircle2, CheckSquare, Square, Download } from 'lucide-react';
+import { X, Share2, Edit3, Trash2, Tag, FileText, Camera, Plus, CheckCircle2, CheckSquare, Square, Download, Sparkles } from 'lucide-react';
 import type { NFAlbum, PhotoAttachment } from '../types';
-import { shareAlbumPhotos } from '../services/sharePhotos';
+import { shareAlbumPhotos, downloadAlbumPhotos } from '../services/sharePhotos';
 import confetti from 'canvas-confetti';
 
 interface AlbumDetailModalProps {
@@ -23,8 +23,8 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
 }) => {
   const [selectedPhotoZoom, setSelectedPhotoZoom] = useState<string | null>(null);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
-  const [isSharing, setIsSharing] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -49,10 +49,24 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
     }
   };
 
-  const handleShareSelected = async () => {
+  const handleDownloadPhotos = () => {
     if (allPhotos.length === 0) return;
-    setIsSharing(true);
-    setShareFeedback(null);
+    const photosToDownload = selectedCount > 0 
+      ? allPhotos.filter((p) => selectedPhotoIds.includes(p.id))
+      : allPhotos;
+
+    const result = downloadAlbumPhotos(album, photosToDownload);
+    if (result.success) {
+      confetti({ particleCount: 30, spread: 45, origin: { y: 0.7 } });
+      setActionFeedback(result.message);
+      setTimeout(() => setActionFeedback(null), 3500);
+    }
+  };
+
+  const handleSharePhotos = async () => {
+    if (allPhotos.length === 0) return;
+    setIsProcessing(true);
+    setActionFeedback(null);
 
     const photosToShare = selectedCount > 0 
       ? allPhotos.filter((p) => selectedPhotoIds.includes(p.id))
@@ -61,19 +75,15 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
     try {
       const result = await shareAlbumPhotos(album, photosToShare);
       if (result.success) {
-        confetti({
-          particleCount: 40,
-          spread: 50,
-          origin: { y: 0.6 }
-        });
-        setShareFeedback(result.message);
-        setTimeout(() => setShareFeedback(null), 4000);
+        confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
+        setActionFeedback(result.message);
+        setTimeout(() => setActionFeedback(null), 3500);
       }
     } catch (err) {
       console.error(err);
-      setShareFeedback('Erro ao compartilhar fotos');
+      setActionFeedback('Erro ao processar fotos.');
     } finally {
-      setIsSharing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -128,7 +138,7 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span className="badge-pill badge-emerald">
-              <CheckCircle2 size={12} /> Salvo no Aparelho
+              <CheckCircle2 size={12} /> Salvo Localmente
             </span>
           </div>
 
@@ -183,8 +193,29 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
             </p>
           </div>
 
-          {/* Feedback de Compartilhamento */}
-          {shareFeedback && (
+          {/* BANNER DE INSTRUÇÃO E BAIXAR FOTOS */}
+          <div style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px'
+          }}>
+            <Sparkles size={18} color="#60A5FA" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>
+                Opções de Envio e Armazenamento
+              </div>
+              <p style={{ fontSize: '12px', color: '#A1A1AA', marginTop: '2px', lineHeight: 1.4 }}>
+                Você pode <b>Baixar</b> as fotos direto para a galeria do seu celular/PC ou <b>Compartilhar</b> no WhatsApp e outros aplicativos.
+              </p>
+            </div>
+          </div>
+
+          {/* Feedback de Ação */}
+          {actionFeedback && (
             <div style={{
               backgroundColor: 'rgba(16, 185, 129, 0.15)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
@@ -197,8 +228,8 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
               alignItems: 'center',
               gap: '8px'
             }}>
-              <Download size={16} />
-              {shareFeedback}
+              <CheckCircle2 size={16} />
+              {actionFeedback}
             </div>
           )}
 
@@ -335,20 +366,35 @@ export const AlbumDetailModal: React.FC<AlbumDetailModalProps> = ({
 
         </div>
 
-        {/* Rodapé Fixo: Compartilhar Fotos Diretamente */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
+        {/* Rodapé Fixo com 2 Botões Claros: BAIXAR e COMPARTILHAR */}
+        <div style={{
+          padding: '16px 20px',
+          borderTop: '1px solid var(--border-subtle)',
+          backgroundColor: 'var(--bg-card)',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '10px'
+        }}>
+          {/* Botão 1: Baixar */}
           <button
-            onClick={handleShareSelected}
-            disabled={isSharing || allPhotos.length === 0}
-            className="btn-primary"
-            style={{ width: '100%', padding: '14px', fontSize: '15px' }}
+            onClick={handleDownloadPhotos}
+            disabled={allPhotos.length === 0}
+            className="btn-secondary"
+            style={{ width: '100%', padding: '14px 10px', fontSize: '13px', whiteSpace: 'nowrap' }}
           >
-            <Share2 size={18} />
-            {isSharing 
-              ? 'Preparando Fotos...' 
-              : selectedCount > 0 
-                ? `Compartilhar ${selectedCount} Foto(s) Selecionada(s)`
-                : `Compartilhar Todas as ${allPhotos.length} Fotos`}
+            <Download size={16} />
+            {selectedCount > 0 ? `Baixar (${selectedCount})` : `Baixar Todas (${allPhotos.length})`}
+          </button>
+
+          {/* Botão 2: Compartilhar */}
+          <button
+            onClick={handleSharePhotos}
+            disabled={isProcessing || allPhotos.length === 0}
+            className="btn-primary"
+            style={{ width: '100%', padding: '14px 10px', fontSize: '13px', whiteSpace: 'nowrap' }}
+          >
+            <Share2 size={16} />
+            {isProcessing ? 'Enviando...' : selectedCount > 0 ? `Enviar (${selectedCount})` : 'Compartilhar'}
           </button>
         </div>
 

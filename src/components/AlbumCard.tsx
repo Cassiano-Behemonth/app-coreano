@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Camera, Calendar, Share2, ChevronRight, FileText, Tag, Check } from 'lucide-react';
+import { Camera, Calendar, Share2, ChevronRight, FileText, Tag, Check, Download } from 'lucide-react';
 import type { NFAlbum } from '../types';
-import { shareAlbumPhotos } from '../services/sharePhotos';
+import { shareAlbumPhotos, downloadAlbumPhotos } from '../services/sharePhotos';
 
 interface AlbumCardProps {
   album: NFAlbum;
@@ -10,6 +10,16 @@ interface AlbumCardProps {
 
 export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
   const [isShared, setIsShared] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+
+  const handleQuickDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const result = downloadAlbumPhotos(album);
+    if (result.success) {
+      setIsDownloaded(true);
+      setTimeout(() => setIsDownloaded(false), 2500);
+    }
+  };
 
   const handleQuickShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -79,30 +89,59 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick }) => {
         </div>
       )}
 
-      {/* Rodapé do Card */}
+      {/* Rodapé do Card com Ações Rápidas: Baixar e Compartilhar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Calendar size={11} /> {formattedDate}
         </span>
 
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Botão Baixar Rápido */}
+          <button
+            onClick={handleQuickDownload}
+            aria-label="Baixar Fotos"
+            title="Baixar Fotos no Dispositivo"
+            style={{
+              background: isDownloaded ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              color: isDownloaded ? '#34D399' : '#A1A1AA',
+              padding: '6px 8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              fontWeight: 600
+            }}
+          >
+            {isDownloaded ? <Check size={14} /> : <Download size={14} />}
+            {isDownloaded ? 'Baixado' : 'Baixar'}
+          </button>
+
+          {/* Botão Compartilhar */}
           <button
             onClick={handleQuickShare}
             aria-label="Compartilhar Fotos"
             title="Compartilhar Fotos"
             style={{
-              background: isShared ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              color: isShared ? '#34D399' : 'var(--text-secondary)',
-              padding: '6px',
+              background: isShared ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              color: isShared ? '#60A5FA' : '#FFFFFF',
+              padding: '6px 8px',
               cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              fontWeight: 600
             }}
           >
-            {isShared ? <Check size={16} /> : <Share2 size={16} />}
+            {isShared ? <Check size={14} /> : <Share2 size={14} />}
+            {isShared ? 'Enviado' : 'Enviar'}
           </button>
+
           <ChevronRight size={16} color="var(--text-muted)" />
         </div>
       </div>
