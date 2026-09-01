@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, Camera, Trash2, Plus, Tag, FileText, Folder, FolderPlus } from 'lucide-react';
+import { X, Check, Camera, Trash2, Plus, Tag, FileText, Folder, FolderPlus, Loader2 } from 'lucide-react';
 import type { NFAlbum, PhotoAttachment } from '../types';
+import { compressImageFile } from '../services/imageOptimizer';
 import confetti from 'canvas-confetti';
 
 interface EditAlbumModalProps {
@@ -26,6 +27,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
   const [isCreatingNewFolder, setIsCreatingNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [attachments, setAttachments] = useState<PhotoAttachment[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +46,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
         setIsCreatingNewFolder(false);
       } else {
         setCategory('');
-        setIsCreatingNewFolder(true); // Se não tem pasta nenhuma, abre direto o campo de digitar o nome da pasta
+        setIsCreatingNewFolder(true);
       }
 
       setNewFolderName('');
@@ -67,22 +69,28 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAddPhotos = (files: FileList | null) => {
+  const handleAddPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const newAtt: PhotoAttachment = {
-          id: 'att_' + Date.now() + Math.random().toString(36).substring(2, 5),
-          dataUrl: reader.result as string,
-          caption: `Foto #${attachments.length + 1}`,
-          createdAt: Date.now()
-        };
-        setAttachments((prev) => [...prev, newAtt]);
-      };
-      reader.readAsDataURL(file);
-    });
+    setIsOptimizing(true);
+    try {
+      const fileArray = Array.from(files);
+      const compressPromises = fileArray.map((file) => compressImageFile(file));
+      const compressedUrls = await Promise.all(compressPromises);
+
+      const newAtts: PhotoAttachment[] = compressedUrls.map((url, idx) => ({
+        id: 'att_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
+        dataUrl: url,
+        caption: `Foto #${attachments.length + idx + 1}`,
+        createdAt: Date.now()
+      }));
+
+      setAttachments((prev) => [...prev, ...newAtts]);
+    } catch (err) {
+      console.error('Erro ao comprimir fotos no modal de edição:', err);
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   const handleRemovePhoto = (id: string) => {
@@ -133,86 +141,76 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
         style={{
           width: '100%',
           maxWidth: '460px',
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           backgroundColor: 'var(--bg-card)',
           borderRadius: 'var(--radius-card)',
           border: '1px solid var(--border-active)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.7)'
         }}
       >
         {/* Header Fixo */}
-        <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ 
+          padding: '20px 22px', 
+          borderBottom: '1px solid var(--border-subtle)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          backgroundColor: 'var(--bg-card)'
+        }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
               {initialData?.id ? 'Editar Organização' : 'Nova Organização de Fotos'}
             </h2>
-            <p className="label-subtle" style={{ marginTop: '2px' }}>
-              {attachments.length} foto(s) para salvar na pasta
+            <p className="label-subtle" style={{ marginTop: '3px' }}>
+              {attachments.length} foto(s) organizada(s)
             </p>
           </div>
-          <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }}>
+          <button onClick={onClose} className="btn-icon" style={{ width: '38px', height: '38px' }}>
             <X size={18} />
           </button>
         </div>
 
         {/* Conteúdo com Rolagem */}
-        <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ padding: '22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Apelido Principal */}
-          <div>
-            <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Tag size={13} color="#60A5FA" />
               Apelido do Serviço / Nome do Registro
             </label>
             <input
               type="text"
+              className="input-custom"
               placeholder="Ex: Reforma Escritório, Conserto Ar, Troca de Peças"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               autoFocus
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--bg-card-elevated)',
-                border: '1px solid var(--border-active)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '12px 14px',
-                color: '#FFFFFF',
-                fontSize: '15px',
-                fontWeight: 600,
-                outline: 'none'
-              }}
+              style={{ fontSize: '15px', fontWeight: 600 }}
             />
           </div>
 
           {/* Número da NF */}
-          <div>
-            <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <FileText size={13} color="#34D399" />
               Nº da NF (Opcional)
             </label>
             <input
               type="text"
+              className="input-custom"
               placeholder="Ex: 2026/0084"
               value={invoiceNumber}
               onChange={(e) => setInvoiceNumber(e.target.value)}
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--bg-card-elevated)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '10px 14px',
-                color: '#FFFFFF',
-                fontSize: '14px',
-                outline: 'none'
-              }}
             />
           </div>
 
           {/* Pasta no Celular */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label className="label-subtle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Folder size={13} color="#F59E0B" />
                 Pasta Física no Celular
@@ -242,35 +240,19 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
             {isCreatingNewFolder || availableFolders.length === 0 ? (
               <input
                 type="text"
-                placeholder="Digite o nome da pasta (ex: Obras, Compras, Manutenções)..."
+                className="input-custom"
+                placeholder="Nome da pasta (ex: Obras, Compras, Manutenções)..."
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 autoFocus={availableFolders.length === 0}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'var(--bg-card-elevated)',
-                  border: '1px solid #3B82F6',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '10px 14px',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  outline: 'none'
-                }}
+                style={{ borderColor: 'var(--accent-blue)' }}
               />
             ) : (
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'var(--bg-card-elevated)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '10px 14px',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  outline: 'none'
-                }}
+                className="input-custom"
+                style={{ cursor: 'pointer' }}
               >
                 {availableFolders.map((f) => (
                   <option key={f} value={f}>{f}</option>
@@ -280,17 +262,17 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
           </div>
 
           {/* Galeria de Fotos */}
-          <div style={{ paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Camera size={16} color="#34D399" />
-                  Fotos do Serviço ({attachments.length})
+                  <Camera size={15} color="#34D399" />
+                  Fotos ({attachments.length})
                 </span>
-                <p className="label-subtle" style={{ fontSize: '11px' }}>Adicione mais fotos se desejar</p>
+                <p className="label-subtle" style={{ fontSize: '11px', marginTop: '2px' }}>Adicione mais comprovantes</p>
               </div>
 
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="file"
                   accept="image/*"
@@ -301,11 +283,12 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                 />
                 <button
                   type="button"
+                  disabled={isOptimizing}
                   onClick={() => cameraInputRef.current?.click()}
                   className="btn-primary"
-                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                  style={{ padding: '7px 12px', fontSize: '12px' }}
                 >
-                  <Camera size={14} /> Câmera
+                  <Camera size={13} /> Câmera
                 </button>
 
                 <input
@@ -318,20 +301,26 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                 />
                 <button
                   type="button"
+                  disabled={isOptimizing}
                   onClick={() => attachmentInputRef.current?.click()}
                   className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                  style={{ padding: '7px 12px', fontSize: '12px' }}
                 >
-                  <Plus size={14} /> Galeria
+                  <Plus size={13} /> Galeria
                 </button>
               </div>
             </div>
 
             {/* Grid de Miniaturas */}
-            {attachments.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+            {isOptimizing ? (
+              <div style={{ padding: '24px 10px', textAlign: 'center', backgroundColor: 'var(--bg-card-elevated)', borderRadius: 'var(--radius-sm)' }}>
+                <Loader2 size={24} className="pulse-glow" style={{ margin: '0 auto 8px auto', color: '#60A5FA' }} />
+                <p style={{ fontSize: '12px', color: '#9494A3' }}>Otimizando imagens...</p>
+              </div>
+            ) : attachments.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                 {attachments.map((att) => (
-                  <div key={att.id} style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', height: '90px', backgroundColor: '#000' }}>
+                  <div key={att.id} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', height: '95px', backgroundColor: '#000', border: '1px solid var(--border-subtle)' }}>
                     <img src={att.dataUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <button
                       type="button"
@@ -340,7 +329,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                         position: 'absolute',
                         top: '4px',
                         right: '4px',
-                        backgroundColor: 'rgba(0,0,0,0.75)',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
                         border: 'none',
                         borderRadius: '50%',
                         width: '24px',
@@ -367,10 +356,11 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
         </div>
 
         {/* Rodapé Fixo */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
+        <div style={{ padding: '16px 22px', borderTop: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-card)' }}>
           <button
             type="button"
             onClick={handleSave}
+            disabled={isOptimizing}
             className="btn-primary"
             style={{ width: '100%', padding: '14px', fontSize: '15px' }}
           >

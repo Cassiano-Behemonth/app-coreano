@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
-import { X, Camera, Upload, Plus } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Camera, Upload, Plus, Loader2 } from 'lucide-react';
+import { compressImageFile } from '../services/imageOptimizer';
 
 interface AddPhotosModalProps {
   isOpen: boolean;
@@ -12,29 +13,26 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
   onClose,
   onPhotosSelected
 }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const dataUrls: string[] = [];
-    let count = 0;
-    const total = files.length;
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        dataUrls.push(reader.result as string);
-        count++;
-        if (count === total) {
-          onPhotosSelected(dataUrls);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setIsProcessing(true);
+    try {
+      const fileArray = Array.from(files);
+      const compressPromises = fileArray.map((file) => compressImageFile(file));
+      const compressedDataUrls = await Promise.all(compressPromises);
+      setIsProcessing(false);
+      onPhotosSelected(compressedDataUrls);
+    } catch (err) {
+      console.error('Erro ao processar e comprimir fotos:', err);
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -45,7 +43,7 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
       right: 0,
       bottom: 0,
       backgroundColor: 'rgba(0, 0, 0, 0.85)',
-      backdropFilter: 'blur(10px)',
+      backdropFilter: 'blur(12px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -63,22 +61,33 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '20px'
+          gap: '22px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
         }}
       >
         {/* Header do Modal */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF' }}>Adicionar Fotos</h2>
-            <p className="label-subtle" style={{ marginTop: '2px' }}>Instantâneo e sem espera</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
+              Adicionar Fotos
+            </h2>
+            <p className="label-subtle" style={{ marginTop: '4px' }}>
+              Fotos otimizadas e salvas no seu aparelho
+            </p>
           </div>
-          <button onClick={onClose} className="btn-icon" style={{ width: '36px', height: '36px' }}>
+          <button 
+            onClick={onClose} 
+            disabled={isProcessing}
+            className="btn-icon" 
+            style={{ width: '38px', height: '38px' }}
+          >
             <X size={18} />
           </button>
         </div>
 
         {/* Opções de Captura Instantânea */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          
           <input 
             type="file" 
             accept="image/*" 
@@ -89,11 +98,12 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
           />
           <button 
             className="btn-primary"
+            disabled={isProcessing}
             onClick={() => cameraInputRef.current?.click()}
             style={{ width: '100%', padding: '16px', fontSize: '15px' }}
           >
-            <Camera size={20} />
-            Tirar Foto com a Câmera
+            {isProcessing ? <Loader2 size={20} className="pulse-glow" /> : <Camera size={20} />}
+            {isProcessing ? 'Otimizando foto...' : 'Tirar Foto com a Câmera'}
           </button>
 
           <input 
@@ -106,19 +116,21 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
           />
           <button 
             className="btn-secondary"
+            disabled={isProcessing}
             onClick={() => fileInputRef.current?.click()}
-            style={{ width: '100%', padding: '14px' }}
+            style={{ width: '100%', padding: '15px', fontSize: '14px' }}
           >
-            <Upload size={18} />
-            Escolher da Galeria (Múltiplas Fotos)
+            {isProcessing ? <Loader2 size={18} /> : <Upload size={18} />}
+            {isProcessing ? 'Processando galeria...' : 'Escolher da Galeria (Múltiplas)'}
           </button>
 
-          <div style={{ marginTop: '6px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ marginTop: '4px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             <button 
+              disabled={isProcessing}
               onClick={() => onPhotosSelected([])}
               style={{
                 width: '100%',
-                background: 'rgba(255, 255, 255, 0.04)',
+                background: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-pill)',
                 padding: '12px',
@@ -129,10 +141,11 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: 'pointer'
+                cursor: isProcessing ? 'default' : 'pointer',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Plus size={16} />
+              <Plus size={15} />
               Criar Organização sem foto inicial
             </button>
           </div>

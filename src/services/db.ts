@@ -43,12 +43,13 @@ export async function saveAlbum(album: NFAlbum): Promise<string> {
   await ensureFolderExists(folderName);
 
   if (album.attachments && album.attachments.length > 0) {
-    album.attachments.forEach(async (att, idx) => {
+    const savePromises = album.attachments.map(async (att, idx) => {
       const ext = att.dataUrl.includes('image/png') ? 'png' : 'jpg';
       const cleanNick = (album.nickname || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_');
       const fileName = `${cleanNick}_${idx + 1}.${ext}`;
       await savePhotoToRealDeviceFolder(folderName, fileName, att.dataUrl);
     });
+    await Promise.all(savePromises);
   }
 
   await db.albums.put(album);

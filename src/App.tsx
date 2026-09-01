@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { BentoGrid } from './components/BentoGrid';
 import { AlbumCard } from './components/AlbumCard';
@@ -26,6 +26,9 @@ export const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'folders'>('grid');
 
+  // Filtro de Data Específica (formato YYYY-MM-DD ou "")
+  const [selectedDate, setSelectedDate] = useState<string>('');
+
   // Modais
   const [isAddPhotosOpen, setIsAddPhotosOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -38,16 +41,16 @@ export const App: React.FC = () => {
   const [initialPhotos, setInitialPhotos] = useState<string[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<NFAlbum | null>(null);
 
-  useEffect(() => {
-    refreshAll();
-  }, []);
-
   const refreshAll = async () => {
     const list = await getAllAlbums();
     const folderList = await getAllFolders();
     setAlbums(list);
     setFolders(folderList);
   };
+
+  useEffect(() => {
+    refreshAll();
+  }, []);
 
   // Captura instantânea de fotos
   const handlePhotosSelected = (photoDataUrls: string[]) => {
@@ -121,16 +124,32 @@ export const App: React.FC = () => {
     setIsDetailOpen(true);
   };
 
-  const filteredAlbums = albums.filter((album) => {
-    const matchesSearch = searchQuery === '' || 
-      album.nickname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      album.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      album.category?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filtro combinado: Busca + Pasta + Data Específica
+  const filteredAlbums = useMemo(() => {
+    return albums.filter((album) => {
+      // 1. Busca textual
+      const matchesSearch = searchQuery === '' || 
+        album.nickname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        album.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        album.category?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = selectedCategory === null || album.category === selectedCategory;
+      // 2. Categoria / Pasta
+      const matchesCategory = selectedCategory === null || album.category === selectedCategory;
 
-    return matchesSearch && matchesCategory;
-  });
+      // 3. Filtro de Data
+      let matchesDate = true;
+      if (selectedDate) {
+        const albumDate = new Date(album.createdAt);
+        const year = albumDate.getFullYear();
+        const month = String(albumDate.getMonth() + 1).padStart(2, '0');
+        const day = String(albumDate.getDate()).padStart(2, '0');
+        const albumDateLocalStr = `${year}-${month}-${day}`;
+        matchesDate = albumDateLocalStr === selectedDate;
+      }
+
+      return matchesSearch && matchesCategory && matchesDate;
+    });
+  }, [albums, searchQuery, selectedCategory, selectedDate]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -147,18 +166,21 @@ export const App: React.FC = () => {
       {/* Banner de Instalação */}
       <InstallAppBanner />
 
-      {/* Conteúdo Principal */}
-      <main style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '4px' }}>
+      {/* Conteúdo Principal com Espaçamentos Arejados */}
+      <main style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '6px' }}>
         
         {/* Visualização de Pastas */}
         {activeTab === 'folders' ? (
-          <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>Pastas de Fotos</h2>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>Pastas no Dispositivo</h2>
+                <p className="label-subtle" style={{ marginTop: '2px' }}>{folders.length} pasta(s) organizadas</p>
+              </div>
               <button
                 onClick={() => setIsNewFolderModalOpen(true)}
                 className="btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '12px' }}
+                style={{ padding: '8px 14px', fontSize: '12px' }}
               >
                 <FolderPlus size={14} /> + Nova Pasta
               </button>
@@ -177,27 +199,28 @@ export const App: React.FC = () => {
                       setActiveTab('grid');
                     }}
                     className="bento-card"
-                    style={{ cursor: 'pointer', gap: '10px' }}
+                    style={{ cursor: 'pointer', gap: '12px', padding: '18px 20px' }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Folder size={20} color="#60A5FA" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Folder size={22} color="#60A5FA" />
                         </div>
                         <div>
-                          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>{cat}</h3>
-                          <p className="label-subtle">{catAlbums.length} pacote(s) • {catPhotos} foto(s)</p>
+                          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>{cat}</h3>
+                          <p className="label-subtle" style={{ marginTop: '2px' }}>{catAlbums.length} pacote(s) • {catPhotos} foto(s)</p>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <button
                           onClick={(e) => handleDeleteFolder(cat, e)}
                           title="Excluir esta pasta"
                           style={{
-                            background: 'transparent',
-                            border: 'none',
-                            padding: '6px',
+                            background: 'rgba(244, 63, 94, 0.1)',
+                            border: '1px solid rgba(244, 63, 94, 0.2)',
+                            borderRadius: '8px',
+                            padding: '8px',
                             color: '#F43F5E',
                             cursor: 'pointer',
                             display: 'flex',
@@ -207,7 +230,7 @@ export const App: React.FC = () => {
                           <Trash2 size={16} />
                         </button>
                         <span style={{ fontSize: '12px', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <ArrowRight size={14} />
+                          <ArrowRight size={16} />
                         </span>
                       </div>
                     </div>
@@ -216,7 +239,7 @@ export const App: React.FC = () => {
               })
             ) : (
               <div style={{
-                padding: '36px 20px',
+                padding: '44px 20px',
                 textAlign: 'center',
                 backgroundColor: 'var(--bg-card)',
                 borderRadius: 'var(--radius-card)',
@@ -224,19 +247,19 @@ export const App: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '12px'
+                gap: '14px'
               }}>
-                <Folder size={32} color="#71717A" />
+                <Folder size={36} color="#71717A" />
                 <div>
-                  <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>Nenhuma pasta criada ainda</h4>
+                  <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>Nenhuma pasta criada</h4>
                   <p className="label-subtle" style={{ marginTop: '4px' }}>
-                    Crie uma pasta física no seu celular para organizar suas fotos
+                    Crie pastas para categorizar suas notas fiscais e fotos
                   </p>
                 </div>
                 <button
                   onClick={() => setIsNewFolderModalOpen(true)}
                   className="btn-primary"
-                  style={{ marginTop: '6px' }}
+                  style={{ marginTop: '8px' }}
                 >
                   <Plus size={16} />
                   Criar Primeira Pasta
@@ -254,35 +277,43 @@ export const App: React.FC = () => {
               selectedCategory={selectedCategory}
               onAlbumClick={handleCardClick}
               onAddNewFolder={() => setIsNewFolderModalOpen(true)}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
             />
 
             {/* Lista de Registros */}
-            <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                <span className="label-subtle" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '11px' }}>
-                  {selectedCategory ? `Pastas em "${selectedCategory}"` : 'Registros Recentes'} ({filteredAlbums.length})
+            <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="label-subtle" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '11px', fontWeight: 700 }}>
+                  {selectedCategory ? `Pastas em "${selectedCategory}"` : 'Registros'} ({filteredAlbums.length})
                 </span>
-                {selectedCategory && (
+                
+                {(selectedCategory || selectedDate) && (
                   <button
-                    onClick={() => setSelectedCategory(null)}
-                    style={{ background: 'transparent', border: 'none', color: '#60A5FA', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setSelectedDate('');
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: '#60A5FA', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                   >
-                    Limpar Filtro
+                    Limpar Todos Filtros
                   </button>
                 )}
               </div>
 
               {filteredAlbums.length > 0 ? (
-                filteredAlbums.map((album) => (
-                  <AlbumCard
-                    key={album.id}
-                    album={album}
-                    onClick={() => handleCardClick(album)}
-                  />
-                ))
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {filteredAlbums.map((album) => (
+                    <AlbumCard
+                      key={album.id}
+                      album={album}
+                      onClick={() => handleCardClick(album)}
+                    />
+                  ))}
+                </div>
               ) : (
                 <div style={{
-                  padding: '36px 20px',
+                  padding: '40px 20px',
                   textAlign: 'center',
                   backgroundColor: 'var(--bg-card)',
                   borderRadius: 'var(--radius-card)',
@@ -290,16 +321,18 @@ export const App: React.FC = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '12px'
+                  gap: '14px'
                 }}>
-                  <Camera size={32} color="#71717A" />
+                  <Camera size={34} color="#71717A" />
                   <div>
-                    <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>Nenhuma foto organizada</h4>
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>Nenhum registro encontrado</h4>
                     <p className="label-subtle" style={{ marginTop: '4px' }}>
-                      Crie um pacote pelo apelido ou tire foto com a câmera
+                      {selectedDate || selectedCategory || searchQuery
+                        ? 'Nenhuma foto encontrada com os filtros selecionados.'
+                        : 'Tire uma foto com a câmera ou crie uma organização.'}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button onClick={handleCreateManual} className="btn-secondary">
                       <Plus size={16} />
                       Criar Apelido
@@ -317,7 +350,7 @@ export const App: React.FC = () => {
 
       </main>
 
-      {/* Barra de Navegação Inferior */}
+      {/* Barra de Navegação Inferior Flutuante */}
       <BottomNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -363,7 +396,7 @@ export const App: React.FC = () => {
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(10px)',
+          backdropFilter: 'blur(12px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -372,48 +405,43 @@ export const App: React.FC = () => {
         }}>
           <div className="animate-slide-up" style={{
             width: '100%',
-            maxWidth: '380px',
+            maxWidth: '400px',
             backgroundColor: 'var(--bg-card)',
             borderRadius: 'var(--radius-card)',
             border: '1px solid var(--border-active)',
-            padding: '20px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '14px'
+            gap: '18px',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.7)'
           }}>
-            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>Criar Nova Pasta</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
+              Criar Nova Pasta
+            </h3>
             <input
               type="text"
+              className="input-custom"
               placeholder="Nome da pasta (ex: Obra Matriz, Compras)"
               value={newFolderNameInput}
               onChange={(e) => setNewFolderNameInput(e.target.value)}
               autoFocus
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--bg-card-elevated)',
-                border: '1px solid var(--border-active)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '12px 14px',
-                color: '#FFFFFF',
-                fontSize: '14px',
-                outline: 'none'
-              }}
+              style={{ fontSize: '14px' }}
             />
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
               <button
                 onClick={() => {
                   setIsNewFolderModalOpen(false);
                   setNewFolderNameInput('');
                 }}
                 className="btn-secondary"
-                style={{ padding: '8px 14px', fontSize: '13px' }}
+                style={{ padding: '9px 16px', fontSize: '13px' }}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateNewFolder}
                 className="btn-primary"
-                style={{ padding: '8px 16px', fontSize: '13px' }}
+                style={{ padding: '9px 18px', fontSize: '13px' }}
               >
                 Criar Pasta
               </button>

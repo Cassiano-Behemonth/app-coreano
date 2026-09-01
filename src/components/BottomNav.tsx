@@ -54,7 +54,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         )}
       </button>
 
-      {/* Botão Central de Scan / OCR */}
+      {/* Botão Central de Câmera / Tirar Foto */}
       <button
         onClick={onScanClick}
         style={{
@@ -70,7 +70,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           boxShadow: '0 4px 15px rgba(255, 255, 255, 0.3)',
           transition: 'transform 0.15s ease'
         }}
-        aria-label="Escanear nota"
+        aria-label="Tirar foto de comprovante"
       >
         <Camera size={22} color="#09090B" />
       </button>
