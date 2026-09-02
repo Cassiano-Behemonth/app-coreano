@@ -46,7 +46,8 @@ export async function saveAlbum(album: NFAlbum): Promise<string> {
     const savePromises = album.attachments.map(async (att, idx) => {
       const ext = att.dataUrl.includes('image/png') ? 'png' : 'jpg';
       const cleanNick = (album.nickname || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const fileName = `${cleanNick}_${idx + 1}.${ext}`;
+      const cleanCaption = (att.caption || `${idx + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${cleanNick}_${cleanCaption}.${ext}`;
       await savePhotoToRealDeviceFolder(folderName, fileName, att.dataUrl);
     });
     await Promise.all(savePromises);

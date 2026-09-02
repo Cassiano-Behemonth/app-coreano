@@ -94,7 +94,10 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
             capture="environment" 
             ref={cameraInputRef} 
             style={{ display: 'none' }}
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={(e) => {
+              handleFiles(e.target.files);
+              e.target.value = '';
+            }}
           />
           <button 
             className="btn-primary"
@@ -112,7 +115,10 @@ export const AddPhotosModal: React.FC<AddPhotosModalProps> = ({
             multiple
             ref={fileInputRef} 
             style={{ display: 'none' }}
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={(e) => {
+              handleFiles(e.target.files);
+              e.target.value = '';
+            }}
           />
           <button 
             className="btn-secondary"

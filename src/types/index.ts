@@ -1,7 +1,8 @@
 export interface PhotoAttachment {
   id: string;
   dataUrl: string; // Base64 da imagem
-  caption?: string;
+  caption?: string; // ex: "#1", "#1b", etc.
+  parentPhotoId?: string; // id da foto pai se for variante
   createdAt: number;
 }
 

@@ -3,8 +3,17 @@ import { Download, X, Smartphone } from 'lucide-react';
 
 export const InstallAppBanner: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [isIOS] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  });
+  const [isInstallable, setIsInstallable] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (window.navigator as any).standalone === true;
+    if (isStandalone) return false;
+    return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  });
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
@@ -13,15 +22,6 @@ export const InstallAppBanner: React.FC = () => {
                          (window.navigator as any).standalone === true;
     if (isStandalone) {
       return; // Já está instalado, não exibe o banner
-    }
-
-    // Detecta se é iOS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIosDevice);
-
-    if (isIosDevice) {
-      setIsInstallable(true);
     }
 
     // Listener para navegadores baseados em Chromium (Android / Chrome / Edge)

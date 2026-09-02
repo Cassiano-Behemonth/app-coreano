@@ -57,7 +57,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
         const mapped: PhotoAttachment[] = initialPhotos.map((url, idx) => ({
           id: 'att_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
           dataUrl: url,
-          caption: `Foto #${idx + 1}`,
+          caption: `#${idx + 1}`,
           createdAt: Date.now()
         }));
         setAttachments(mapped);
@@ -81,7 +81,7 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
       const newAtts: PhotoAttachment[] = compressedUrls.map((url, idx) => ({
         id: 'att_' + Date.now() + '_' + idx + Math.random().toString(36).substring(2, 5),
         dataUrl: url,
-        caption: `Foto #${attachments.length + idx + 1}`,
+        caption: `#${attachments.length + idx + 1}`,
         createdAt: Date.now()
       }));
 
@@ -279,7 +279,10 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                   capture="environment"
                   ref={cameraInputRef}
                   style={{ display: 'none' }}
-                  onChange={(e) => handleAddPhotos(e.target.files)}
+                  onChange={(e) => {
+                    handleAddPhotos(e.target.files);
+                    e.target.value = '';
+                  }}
                 />
                 <button
                   type="button"
@@ -297,7 +300,10 @@ export const EditAlbumModal: React.FC<EditAlbumModalProps> = ({
                   multiple
                   ref={attachmentInputRef}
                   style={{ display: 'none' }}
-                  onChange={(e) => handleAddPhotos(e.target.files)}
+                  onChange={(e) => {
+                    handleAddPhotos(e.target.files);
+                    e.target.value = '';
+                  }}
                 />
                 <button
                   type="button"

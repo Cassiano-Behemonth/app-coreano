@@ -38,9 +38,10 @@ export function downloadAlbumPhotos(
 
   photosToDownload.forEach((photo, idx) => {
     const ext = photo.dataUrl.includes('image/png') ? 'png' : 'jpg';
+    const cleanCaption = (photo.caption || `${idx + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
     const link = document.createElement('a');
     link.href = photo.dataUrl;
-    link.download = `${cleanName}_foto_${idx + 1}.${ext}`;
+    link.download = `${cleanName}_${cleanCaption}.${ext}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -102,7 +103,7 @@ export async function shareAlbumPhotos(
       return { success: true, message: 'Compartilhado com sucesso!' };
     } catch (nativeErr: any) {
       if (nativeErr.message?.includes('canceled') || nativeErr.message?.includes('abort')) {
-        return { success: true, message: 'Compartilhamento cancelado.' };
+        return { success: false, message: 'Compartilhamento cancelado.' };
       }
       console.warn('Fallback para Web Share:', nativeErr);
     }
@@ -112,7 +113,8 @@ export async function shareAlbumPhotos(
   try {
     const files: File[] = photosToShare.map((photo, index) => {
       const ext = photo.dataUrl.includes('image/png') ? 'png' : 'jpg';
-      const filename = `${cleanName}_foto_${index + 1}.${ext}`;
+      const cleanCaption = (photo.caption || `${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cleanName}_${cleanCaption}.${ext}`;
       return dataURLtoFile(photo.dataUrl, filename);
     });
 
@@ -123,18 +125,12 @@ export async function shareAlbumPhotos(
         files: files
       });
       return { success: true, message: 'Fotos compartilhadas com sucesso!' };
-    } else if (navigator.share) {
-      await navigator.share({
-        title: album.nickname,
-        text: `Fotos de ${album.nickname} (${photosToShare.length} foto(s))`
-      });
-      return { success: true, message: 'Compartilhado com sucesso!' };
     }
   } catch (webErr: any) {
     if (webErr.name === 'AbortError') {
-      return { success: true, message: 'Compartilhamento cancelado.' };
+      return { success: false, message: 'Compartilhamento cancelado.' };
     }
-    console.warn('Web Share não suportado neste ambiente, executando download:', webErr);
+    console.warn('Web Share de arquivos não suportado neste ambiente, executando download:', webErr);
   }
 
   // 3. Fallback: Download automático

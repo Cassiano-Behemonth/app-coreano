@@ -10,6 +10,7 @@ import { BottomNav } from './components/BottomNav';
 import type { NFAlbum, PhotoAttachment } from './types';
 import { 
   getAllAlbums, 
+  getAlbumById,
   saveAlbum, 
   deleteAlbum, 
   getAllFolders,
@@ -49,7 +50,18 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    refreshAll();
+    let isMounted = true;
+    (async () => {
+      const list = await getAllAlbums();
+      const folderList = await getAllFolders();
+      if (isMounted) {
+        setAlbums(list);
+        setFolders(folderList);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Captura instantânea de fotos
@@ -96,13 +108,39 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleAddPhotoToAlbum = async (albumId: string, newPhoto: PhotoAttachment) => {
-    const album = albums.find((a) => a.id === albumId);
-    if (!album) return;
+  const handleAddPhotosToAlbum = async (
+    albumId: string, 
+    newPhotos: PhotoAttachment[],
+    insertAfterPhotoId?: string
+  ) => {
+    const currentAlbum = (await getAlbumById(albumId)) || albums.find((a) => a.id === albumId);
+    if (!currentAlbum) return;
+
+    let updatedAttachments = [...(currentAlbum.attachments || [])];
+
+    if (insertAfterPhotoId) {
+      // Localiza o índice da foto pai
+      const parentIdx = updatedAttachments.findIndex((p) => p.id === insertAfterPhotoId);
+      if (parentIdx !== -1) {
+        // Encontra o ponto de inserção após a foto pai e suas variantes já existentes
+        let insertIdx = parentIdx + 1;
+        while (
+          insertIdx < updatedAttachments.length &&
+          updatedAttachments[insertIdx].parentPhotoId === insertAfterPhotoId
+        ) {
+          insertIdx++;
+        }
+        updatedAttachments.splice(insertIdx, 0, ...newPhotos);
+      } else {
+        updatedAttachments.push(...newPhotos);
+      }
+    } else {
+      updatedAttachments.push(...newPhotos);
+    }
 
     const updated: NFAlbum = {
-      ...album,
-      attachments: [...(album.attachments || []), newPhoto],
+      ...currentAlbum,
+      attachments: updatedAttachments,
       updatedAt: Date.now()
     };
 
@@ -384,7 +422,7 @@ export const App: React.FC = () => {
           setIsEditOpen(true);
         }}
         onDelete={handleDeleteAlbum}
-        onAddPhoto={handleAddPhotoToAlbum}
+        onAddPhotos={handleAddPhotosToAlbum}
       />
 
       {/* Modal de Criar Nova Pasta Física */}
